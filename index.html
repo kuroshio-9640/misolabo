@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MISOLABO｜みそらぼ - 伊波ライ非公式ファンサイト</title>
+<title>MISOLABO — Unofficial Fansite</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -2390,7 +2390,7 @@
   // ── Format collaborators: split by , 、 × and join with "/"
   function formatCollabs(raw) {
     if (!raw || !raw.trim()) return '';
-    return raw.split(/[,、×]/).map(n => n.trim()).filter(Boolean).join('／');
+    return raw.split(/[,、×]/).map(n => n.trim()).filter(Boolean).join('/');
   }
 
   // ── Format collaborators for home cards: join with 、
@@ -3013,8 +3013,16 @@
     if (ytPlayer) { try { ytPlayer.destroy(); } catch(e){} ytPlayer = null; }
 
     ytPlayer = new YT.Player('ytPlayerInner', {
+      host: 'https://www.youtube-nocookie.com', // Privacy-enhanced mode — reduces ads
       videoId: currentSong.videoId,
-      playerVars: { autoplay: 1, start: Math.floor(currentSong.startSeconds || 0), enablejsapi: 1 },
+      playerVars: {
+        autoplay:       1,
+        start:          Math.floor(currentSong.startSeconds || 0),
+        enablejsapi:    1,
+        rel:            0,   // Don't show related videos from other channels
+        modestbranding: 1,   // Reduce YouTube logo prominence
+        origin:         window.location.origin, // Tell YouTube the embed origin
+      },
       events: {
         onReady: e => e.target.playVideo(),
         onStateChange: onPlayerStateChange,
@@ -3592,7 +3600,7 @@
         ${homeRandomPicks.length ? `
         <div class="home-section">
           <div class="home-section-header">
-            <span>Pick Up!</span>
+            <span>Pick Up !</span>
             <div class="home-section-line"></div>
           </div>
           <div class="home-cards">${cardHtml(homeRandomPicks, false)}</div>
