@@ -350,14 +350,18 @@
   .search-wrap {
     position: relative;
     width: 100%;
-    max-width: 480px;
+    max-width: 1100px;
     margin: 0 auto;
   }
 
-  /* Grid placement: search in center column, count in right column */
+  /* Grid placement: search in center column, count in right column.
+     clamp() uses vw so the auto column has a concrete size to target —
+     avoids circular sizing. Sidebar (200px) + both side margins (~220px)
+     are subtracted so the search never bleeds into the count or spacer. */
   .topbar-row .search-wrap {
     grid-column: 2;
-    min-width: 200px;
+    width: clamp(200px, calc(100vw - var(--sidebar-w) - 220px), 1100px);
+    min-width: 0;
   }
 
   .topbar-row .song-count {
@@ -705,6 +709,7 @@
     .topbar-row .search-wrap,
     .pl-topbar-row .search-wrap {
       flex: 1 1 180px !important;
+      width: auto !important;
       min-width: 0 !important;
       max-width: none !important;
       grid-column: auto !important;
@@ -1762,7 +1767,8 @@
   /* Playlist topbar-row: search in center, count on right */
   .pl-topbar-row .search-wrap {
     grid-column: 2;
-    min-width: 200px;
+    width: clamp(200px, calc(100vw - var(--sidebar-w) - 220px), 1100px);
+    min-width: 0;
   }
 
   .pl-topbar-row .song-count {
@@ -4592,6 +4598,19 @@
                   <li>試験運用版（BETA）公開</li>
                 </ul>
               </div>
+            </div>
+          </div>
+
+          <div class="about-section">
+            <div class="about-section-title">
+              Disclaimer
+              <div class="about-title-line"></div>
+            </div>
+            <div class="about-body">
+              本サイトは ANYCOLOR株式会社様 及びにじさんじプロジェクト、各種関係会社とは一切関係がございません。<br>
+              掲載しているすべての動画・画像等のコンテンツは各権利者に帰属します。<br>
+              本サイトはファンが個人の趣味として制作したものであり、営利目的ではございません。<br>
+              掲載内容は予告なく変更・削除される場合がございます。
             </div>
           </div>
 
