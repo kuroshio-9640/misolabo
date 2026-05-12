@@ -323,16 +323,16 @@
     z-index: 10;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
-    padding: 20px 24px 14px;
+    padding: 20px 24px 8px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
     flex-shrink: 0;
   }
 
   .topbar-row {
     display: grid;
-    grid-template-columns: minmax(120px, 1fr) minmax(260px, 480px) minmax(88px, 1fr);
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 16px;
   }
@@ -343,10 +343,28 @@
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--text-muted);
+    display: none; /* task 31: removed from display */
   }
 
   /* Search */
-  .search-wrap { position: relative; width: 100%; }
+  .search-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* Grid placement: search in center column, count in right column */
+  .topbar-row .search-wrap {
+    grid-column: 2;
+    min-width: 200px;
+  }
+
+  .topbar-row .song-count {
+    grid-column: 3;
+    justify-self: end;
+    margin-left: 0;
+  }
 
   .search-icon {
     position: absolute;
@@ -439,21 +457,14 @@
     z-index: 49;
   }
 
-  /* ── HOME CARDS — fully responsive (no video / with video halved) ─── */
-  /* ≥1400px: 8 cols → 4 (video open) */
-  .home-cards { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; }
-  body.yt-open .home-cards { grid-template-columns: repeat(4, 1fr); }
+  /* ── HOME CARDS — max 4 per row ─── */
+  .home-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  body.yt-open .home-cards { grid-template-columns: repeat(2, 1fr); }
 
-  /* 1000-1399px: 4 cols → 2 (video open) */
-  @media (max-width: 1399px) {
-    .home-cards { grid-template-columns: repeat(4, 1fr); }
-    body.yt-open .home-cards { grid-template-columns: repeat(2, 1fr); }
-  }
-
-  /* 769-999px: 2 cols → 1 (video open) */
+  /* 769-999px: 2 cols */
   @media (max-width: 999px) {
     .home-cards { grid-template-columns: repeat(2, 1fr); }
-    body.yt-open .home-cards { grid-template-columns: 1fr; }
+    body.yt-open .home-cards { grid-template-columns: repeat(2, 1fr); }
   }
 
   /* Mobile playback controls (shuffle/repeat in topbar, desktop hidden) */
@@ -495,6 +506,81 @@
   /* Desktop close bar never shows */
   @media (min-width: 769px) {
     .yt-mobile-close-bar { display: none !important; }
+  }
+
+  /* ── RESPONSIVE — TABLET INTERMEDIATE (769–1100px with yt open) ─── */
+  @media (min-width: 769px) and (max-width: 1100px) {
+    body.yt-open .main {
+      flex-direction: column;
+    }
+    body.yt-open .yt-side {
+      order: -1;
+      position: relative !important;
+      top: auto !important;
+      width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      border-left: none;
+      border-bottom: 1px solid var(--border);
+      align-self: auto !important;
+      overflow: visible !important;
+    }
+    body.yt-open .yt-side.open {
+      width: 100% !important;
+      border-left-width: 0 !important;
+    }
+    body.yt-open .yt-embed {
+      aspect-ratio: 16/9;
+      width: 100% !important;
+      height: auto !important;
+    }
+    body.yt-open .yt-embed iframe,
+    body.yt-open .yt-embed > div {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    body.yt-open .yt-header {
+      display: flex !important;
+    }
+    /* #46: 3-area grid — top-left: title/artist/tags, bottom-left: date, right: collab */
+    body.yt-open .yt-info {
+      display: grid !important;
+      grid-template-areas:
+        "header  collab"
+        "date    collab";
+      grid-template-columns: 2fr 1fr;
+      grid-template-rows: 1fr auto;
+      align-items: stretch;
+      padding: 14px 20px;
+      gap: 12px 24px;
+      max-height: none;
+      overflow-y: visible;
+    }
+    body.yt-open .yt-song-header {
+      grid-area: header;
+      align-self: start;
+    }
+    /* Unwrap yt-meta-group so its children become direct grid items */
+    body.yt-open .yt-meta-group {
+      display: contents !important;
+    }
+    body.yt-open #ytCollabSection {
+      grid-area: collab;
+      display: flex !important;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    body.yt-open #ytDateSection {
+      grid-area: date;
+      align-self: end;
+      display: block !important;
+    }
+    /* Hide VIDEO block in tablet intermediate layout */
+    body.yt-open #ytVideoSection {
+      display: none !important;
+    }
+    body.yt-open .yt-song-title { font-size: 15px; }
+    body.yt-open .home-cards { grid-template-columns: repeat(3, 1fr); }
   }
 
   /* ── RESPONSIVE — TABLET / MOBILE ───────────────── */
@@ -609,16 +695,29 @@
       z-index: 1 !important;
       flex-shrink: 0;
     }
-    .topbar { padding: 14px 14px 12px !important; }
+    .topbar { padding: 14px 14px 8px !important; }
     .topbar-row,
     .pl-topbar-row {
-      grid-template-columns: 1fr !important;
+      display: flex !important;
+      flex-wrap: wrap !important;
       gap: 10px !important;
     }
-    .song-count {
-      justify-self: start;
-      text-align: left;
-      min-width: 0;
+    .topbar-row .search-wrap,
+    .pl-topbar-row .search-wrap {
+      flex: 1 1 180px !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      grid-column: auto !important;
+    }
+    .topbar-row .song-count,
+    .pl-topbar-row .song-count {
+      flex: 0 0 auto;
+      justify-self: auto;
+      margin-left: auto;
+    }
+    .pl-view-toggle {
+      grid-column: auto !important;
+      justify-self: auto !important;
     }
 
     /* Player: compact but includes fav, +, shuffle, repeat */
@@ -629,8 +728,8 @@
       flex-shrink: 0;
     }
     .progress-wrap { display: none !important; }
-    /* Hide volume + YouTube open (keep all others) */
-    #volumeBtn, .player [title="Open in YouTube"] { display: none !important; }
+    /* Hide volume on compact mobile player */
+    #volumeBtn { display: none !important; }
     /* Restore shuffle/repeat in player (same as desktop) */
     #shuffleBtn, #repeatBtn { display: flex !important; }
     .controls-btns { gap: 4px; }
@@ -661,7 +760,9 @@
 
   @media (max-width: 480px) {
     :root { --player-h: 52px; }
-    .pl-grid { grid-template-columns: repeat(2, 1fr); }
+    .search-wrap { flex-basis: 150px; }
+    .song-count { font-size: 8px; min-width: 58px; }
+    .pl-view-toggle { width: 100%; justify-content: flex-end; margin-left: 0; }
     .yt-song-title { font-size: 15px; }
   }
 
@@ -669,8 +770,9 @@
   .topbar-controls {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .topbar-toggle-btn {
@@ -716,6 +818,7 @@
   .filters {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     flex-wrap: wrap;
     padding: 4px 0 2px;
@@ -877,6 +980,7 @@
   .sort-panel-inner {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     flex-wrap: wrap;
     padding: 4px 0 2px;
@@ -890,8 +994,7 @@
     text-transform: uppercase;
     color: var(--text-muted);
     white-space: nowrap;
-    justify-self: end;
-    min-width: 88px;
+    min-width: 76px;
     text-align: right;
   }
 
@@ -1215,7 +1318,6 @@
     font-family: 'Space Mono', monospace;
     font-size: 10px;
     letter-spacing: 0.12em;
-    text-transform: uppercase;
     color: var(--text-muted);
     margin-bottom: 14px;
   }
@@ -1265,6 +1367,18 @@
     letter-spacing: 0.08em;
   }
 
+  .yt-video-link {
+    display: block;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+    transition: color 0.15s;
+  }
+
+  .yt-video-link:hover { color: var(--accent); }
+
   /* ── PLAYER ──────────────────────────── */
   .player {
     /* Fixed to viewport bottom — always visible, no grid row needed */
@@ -1287,7 +1401,7 @@
   .player-info {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     min-width: 0;
   }
 
@@ -1325,7 +1439,6 @@
     font-family: 'Space Mono', monospace;
     font-size: 9px;
     letter-spacing: 0.12em;
-    text-transform: uppercase;
     color: var(--text-muted);
     margin-top: 3px;
     white-space: nowrap;
@@ -1573,7 +1686,7 @@
   }
   .pl-topbar-row {
     display: grid;
-    grid-template-columns: minmax(120px, 1fr) minmax(260px, 480px) minmax(88px, 1fr);
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 16px;
   }
@@ -1624,16 +1737,38 @@
   /* ── Playlist grid */
   .pl-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
+  }
+
+  @media (max-width: 1100px) {
+    .pl-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 768px) {
+    .pl-grid { grid-template-columns: 1fr; }
   }
 
   .pl-view-toggle {
     display: flex;
+    grid-column: 3;
     justify-self: end;
     border: 1px solid var(--border);
     border-radius: var(--r-pill);
     overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* Playlist topbar-row: search in center, count on right */
+  .pl-topbar-row .search-wrap {
+    grid-column: 2;
+    min-width: 200px;
+  }
+
+  .pl-topbar-row .song-count {
+    grid-column: 3;
+    justify-self: end;
+    margin-left: 0;
   }
 
   .pl-view-btn {
@@ -1720,13 +1855,13 @@
     border-radius: var(--r-card);
     padding: 10px;
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.15s, background 0.15s, transform 0.12s;
     display: flex;
     flex-direction: column;
     gap: 8px;
     position: relative;
   }
-  .pl-card:hover { border-color: var(--accent-dim); background: var(--surface2); }
+  .pl-card:hover { border-color: var(--accent-dim); background: var(--surface2); transform: translateY(-2px); }
 
   .pl-card-cover {
     width: 100%;
@@ -1758,9 +1893,9 @@
     font-size: 13px;
     font-weight: 500;
     color: var(--text-dim);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
     line-height: 1.3;
   }
 
@@ -1824,11 +1959,12 @@
 
   .pl-detail-title-block {
     text-align: center;
-    padding: 6px 20px 0;
+    padding: 0 20px 18px;
+    margin-top: -4px;
   }
 
   .pl-detail-title {
-    font-size: 22px;
+    font-size: 21px;
     font-weight: 700;
     color: var(--text);
     line-height: 1.25;
@@ -1848,6 +1984,7 @@
   .pl-detail-sort {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     flex-wrap: wrap;           /* Same as sort-panel-inner */
     padding: 4px 0 2px;        /* Same as sort-panel-inner */
@@ -2123,14 +2260,15 @@
 
   .home-section-header {
     font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.22em;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 16px;
+    color: var(--text);
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
   }
   .home-section-line { flex: 1; height: 1px; background: var(--border); }
 
@@ -2209,7 +2347,7 @@
   .home-card.playing .home-card-title { color: var(--accent); }
   .home-card-artist {
     font-family: 'Space Mono', monospace;
-    font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 9px; letter-spacing: 0.08em;
     color: var(--text-muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
@@ -2242,13 +2380,13 @@
     /* No flex:1 or overflow-y:auto — page scrolls naturally */
   }
 
-  .about-inner { max-width: 660px; }
+  .about-inner { max-width: 720px; }
 
-  .about-section { margin-bottom: 40px; }
+  .about-section { margin-bottom: 44px; }
   .about-section-title {
     font-family: 'Space Mono', monospace;
-    font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--accent); margin-bottom: 14px;
+    font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px;
     display: flex; align-items: center; gap: 12px;
   }
   .about-title-line { flex: 1; height: 1px; background: var(--accent-dim); opacity: 0.4; }
@@ -2256,13 +2394,21 @@
   .about-body { font-size: 12px; line-height: 2.1; color: var(--text-dim); }
   .about-body strong { color: var(--text); font-weight: 700; }
 
+  .about-brand-subtitle {
+    font-size: 12px;
+    font-style: normal;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    line-height: 2.1;
+  }
+
   .about-feature-list {
-    display: flex; flex-direction: column; gap: 16px; margin-top: 4px;
+    display: flex; flex-direction: column; gap: 26px; margin-top: 4px;
   }
   .about-feature-item {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
   }
   .about-feature-label {
     font-family: 'Space Mono', monospace;
@@ -2272,7 +2418,32 @@
     white-space: nowrap; align-self: flex-start;
   }
   .about-feature-desc {
-    font-size: 12px; line-height: 1.85; color: var(--text-dim);
+    font-size: 12px; line-height: 1.75; color: var(--text-dim);
+  }
+
+  .about-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 2px;
+    padding: 0;
+  }
+
+  .about-list li {
+    position: relative;
+    padding-left: 16px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-dim);
+  }
+
+  .about-list li::before {
+    content: '·';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
   }
 
   .about-disclaimer {
@@ -2286,7 +2457,7 @@
 
   .about-contact-link {
     display: inline-flex; align-items: center; gap: 8px;
-    padding: 8px 18px; margin-top: 12px;
+    padding: 8px 18px;
     border-radius: var(--r-pill);
     border: 1px solid var(--border);
     color: var(--text-muted); text-decoration: none;
@@ -2295,6 +2466,15 @@
     transition: all 0.15s;
   }
   .about-contact-link:hover { border-color: #1d9bf0; color: #1d9bf0; }
+  .about-contact-link[href*="marshmallow"]:hover { border-color: #ff9fcb; color: #ff9fcb; }
+
+  .about-contact-links {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
 
   /* ── MOBILE OVERLAY (hidden by default) */
 </style>
@@ -2371,7 +2551,6 @@
   <div class="song-section">
     <div class="topbar">
       <div class="topbar-row">
-        <span class="page-kicker">Song Database</span>
         <div class="search-wrap">
           <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input class="search-input" type="text" placeholder="SEARCH" oninput="filterSongs(this.value)">
@@ -2459,7 +2638,7 @@
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
-      Close Video
+      Close
     </button>
   </div>
 
@@ -2487,6 +2666,11 @@
           <div class="yt-meta-label">Collaborators</div>
           <!-- divider removed -->
           <div class="yt-collab-chips" id="ytCollabChips"></div>
+        </div>
+
+        <div class="yt-meta-block" id="ytVideoSection" style="display:none;">
+          <div class="yt-meta-label">Video</div>
+          <a class="yt-video-link" id="ytVideoTitle" href="#" target="_blank" rel="noopener"></a>
         </div>
 
         <div class="yt-meta-block" id="ytDateSection" style="display:none;">
@@ -2584,9 +2768,6 @@
         <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100" oninput="setVolume(this.value)">
       </div>
     </div>
-    <button class="ctrl-btn" title="Open in YouTube" onclick="window.open('https://www.youtube.com/watch?v='+(currentSong?currentSong.videoId:''),'_blank')">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-    </button>
   </div>
 </div>
 
@@ -2703,7 +2884,7 @@
   }
 
   // ── Song data cache (localStorage)
-  const LS_SONGS_CACHE_KEY = 'inami_songs_cache_v1';
+  const LS_SONGS_CACHE_KEY = 'inami_songs_cache_v2';
   const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
   function getSongsFromCache() {
@@ -2724,6 +2905,25 @@
     return `<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--text-muted)" stroke="none"><path d="M9 3v11.586A3.5 3.5 0 1 0 11 18V8.5l10-1.667V14.1A3.5 3.5 0 1 0 23 17.5V2.167L9 3Z"/></svg>`;
   }
 
+  function getYouTubeThumbnail(videoId, quality = 'max') {
+    const id = encodeURIComponent(videoId || '');
+    const file = quality === 'hq' ? 'hqdefault.jpg' : 'maxresdefault.jpg';
+    return `https://img.youtube.com/vi/${id}/${file}`;
+  }
+
+  function fallbackYouTubeThumbnail(img, fallbackHtml = '') {
+    if (!img.dataset.fallbackTried) {
+      img.dataset.fallbackTried = '1';
+      img.src = getYouTubeThumbnail(img.dataset.videoId, 'hq');
+      return;
+    }
+    if (fallbackHtml && img.parentElement) {
+      img.parentElement.innerHTML = fallbackHtml;
+    } else {
+      img.style.opacity = '0';
+    }
+  }
+
   function updatePlayerThumb(song) {
     const thumb = document.getElementById('playerThumb');
     if (!thumb) return;
@@ -2731,7 +2931,7 @@
       thumb.innerHTML = playerFallbackIcon();
       return;
     }
-    thumb.innerHTML = `<img src="https://img.youtube.com/vi/${escapeHtml(song.videoId)}/hqdefault.jpg" alt="${escapeHtml(song.title)}" onerror="this.parentElement.innerHTML=playerFallbackIcon()">`;
+    thumb.innerHTML = `<img src="${getYouTubeThumbnail(song.videoId)}" data-video-id="${escapeHtml(song.videoId)}" alt="${escapeHtml(song.title)}" onerror="fallbackYouTubeThumbnail(this, playerFallbackIcon())">`;
   }
 
   function updatePlayerDisplay(song) {
@@ -2773,6 +2973,7 @@
       const cols = json.table.cols.map(c => c.label);
       const idx  = {
         videoId:       cols.indexOf('videoId'),
+        videoTitle:    cols.indexOf('videoTitle'),
         title:         cols.indexOf('title'),
         artist:        cols.indexOf('artist'),
         collaborators: cols.indexOf('collaborators'),
@@ -2794,6 +2995,7 @@
           return {
             id:            i + 1,
             videoId:       get(idx.videoId) || '',
+            videoTitle:    get(idx.videoTitle) || '',
             title:         get(idx.title)   || '(No Title)',
             artist:        get(idx.artist)  || '',
             collaborators: get(idx.collaborators) || '',
@@ -3190,17 +3392,17 @@
     if (!inner) return;
     if (currentView === 'favorites') {
       inner.innerHTML = [
-        ['date-desc', '公開日（新しい順）'],
-        ['date-asc',  '公開日（古い順）'],
-        ['added-desc','追加日（新しい順）'],
-        ['added-asc', '追加日（古い順）'],
+        ['date-desc', '公開日(新しい順)'],
+        ['date-asc',  '公開日(古い順)'],
+        ['added-desc','追加日(新しい順)'],
+        ['added-asc', '追加日(古い順)'],
       ].map(([mode, label]) =>
         `<button class="pl-sort-btn ${favSortMode === mode ? 'active' : ''}" onclick="setFavSort('${mode}')">${label}</button>`
       ).join('');
     } else {
       inner.innerHTML = [
-        ['date-desc', '公開日（新しい順）'],
-        ['date-asc',  '公開日（古い順）'],
+        ['date-desc', '公開日(新しい順)'],
+        ['date-asc',  '公開日(古い順)'],
       ].map(([mode, label]) =>
         `<button class="pl-sort-btn ${dbSortMode === mode ? 'active' : ''}" onclick="setDbSort('${mode}')">${label}</button>`
       ).join('');
@@ -3399,13 +3601,6 @@
     document.getElementById('filterToggleBtn')?.classList.remove('open');
     document.getElementById('sortToggleBtn')?.classList.remove('open');
 
-    const kicker     = document.querySelector('.page-kicker');
-    if (view === 'favorites') {
-      kicker.textContent     = 'My Favorites';
-    } else {
-      kicker.textContent     = 'Song Database';
-    }
-
     updateSortPanel();
 
     searchQuery = '';
@@ -3447,7 +3642,7 @@
     document.body.classList.add('yt-open');
     document.getElementById('ytMobileCloseBar')?.classList.add('show');
     document.getElementById('ytSongTitle').textContent  = currentSong.title;
-    document.getElementById('ytSongArtist').textContent = currentSong.artist.toUpperCase();
+    document.getElementById('ytSongArtist').textContent = currentSong.artist;
     document.getElementById('ytSongTags').innerHTML = currentSong.tags.map(t =>
       `<span class="song-tag ${t.toLowerCase()}">${t}</span>`).join('');
 
@@ -3462,6 +3657,16 @@
       collabSection.style.display = '';
     } else {
       collabSection.style.display = 'none';
+    }
+
+    const videoSection = document.getElementById('ytVideoSection');
+    const videoTitle = document.getElementById('ytVideoTitle');
+    if (currentSong.videoTitle && currentSong.videoTitle.trim()) {
+      videoTitle.textContent = currentSong.videoTitle;
+      videoTitle.href = `https://www.youtube.com/watch?v=${encodeURIComponent(currentSong.videoId)}`;
+      videoSection.style.display = '';
+    } else {
+      videoSection.style.display = 'none';
     }
 
     // Date — already formatted as YYYY/MM/DD only
@@ -3709,7 +3914,7 @@
   let playlists = [];
   let currentPlaylistId = null;   // null = grid view, else detail view
   let playlistViewMode = 'card';  // 'card' | 'list'
-  let plDetailSortMode  = 'custom'; // 'custom' | 'added' | 'date'
+  let plDetailSortMode  = 'added-asc'; // 'custom' | 'added' | 'date'
   let playlistSearchQuery = '';
   let plDragSrcIndex    = null;
   let modalSelectedPlaylists = new Set();
@@ -3748,7 +3953,6 @@
   function createPlaylist(name) {
     const trimmed = name ? name.trim() : '';
     if (!trimmed) return;
-    if ([...trimmed].length > 20) { alert('Playlist name must be 20 characters or fewer.'); return; }
     playlists.push({ id: genPlaylistId(), name: trimmed, createdAt: Date.now(), songs: [] });
     savePlaylistsToStorage();
     renderPlaylistPage();
@@ -3775,7 +3979,7 @@
   // ── Navigation
   function openPlaylistDetail(id) {
     currentPlaylistId = id;
-    plDetailSortMode  = 'custom';
+    plDetailSortMode  = 'added-asc';
     playlistSearchQuery = '';
     renderPlaylistPage();
   }
@@ -3829,7 +4033,7 @@
   function renderPlaylistCover(pl) {
     const coverSong = getPlaylistCoverSong(pl);
     if (coverSong?.videoId) {
-      return `<img src="https://img.youtube.com/vi/${escapeHtml(coverSong.videoId)}/hqdefault.jpg" alt="${escapeHtml(coverSong.title)}" loading="lazy">`;
+      return `<img src="${getYouTubeThumbnail(coverSong.videoId)}" data-video-id="${escapeHtml(coverSong.videoId)}" alt="${escapeHtml(coverSong.title)}" loading="lazy" onerror="fallbackYouTubeThumbnail(this)">`;
     }
     return `<svg class="pl-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
       <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
@@ -3848,8 +4052,7 @@
     page.innerHTML = `
       <div class="pl-topbar">
         <div class="pl-topbar-row">
-          <span class="page-kicker">Playlist</span>
-          <span></span>
+          <div style="flex:1;"></div>
           <div class="pl-view-toggle" aria-label="Playlist view mode">
             <button class="pl-view-btn ${playlistViewMode === 'card' ? 'active' : ''}" onclick="setPlaylistViewMode('card')">Card</button>
             <button class="pl-view-btn ${playlistViewMode === 'list' ? 'active' : ''}" onclick="setPlaylistViewMode('list')">List</button>
@@ -3926,10 +4129,9 @@
     if (!area || area.innerHTML.trim()) return;
     area.innerHTML = `
       <div class="pl-create-panel">
-        <div class="pl-create-panel-title">Create Playlist</div>
         <div class="pl-create-panel-row">
           <input class="pl-create-input" id="plNameInput" type="text"
-            placeholder="PLAYLIST NAME (MAX 20 CHARACTERS)"
+            placeholder="PLAYLIST NAME"
             onkeydown="if(event.key==='Enter') submitCreatePlaylist()">
           <button class="queue-action-btn primary" onclick="submitCreatePlaylist()">Create</button>
           <button class="queue-action-btn" onclick="cancelCreatePlaylist()">Cancel</button>
@@ -3943,7 +4145,6 @@
     if (!input) return;
     const name = input.value.trim();
     if (!name) { input.focus(); return; }
-    if ([...name].length > 20) { input.style.borderColor = '#f87171'; return; }
     createPlaylist(name);
   }
 
@@ -4027,7 +4228,7 @@
           <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
             <button class="pl-back-btn" onclick="backToPlaylists()">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-              Playlist
+              Back
             </button>
           </div>
           <div class="search-wrap">
@@ -4043,17 +4244,16 @@
             </svg>
             Sort
           </span>
-          <button class="pl-sort-btn ${plDetailSortMode === 'date-desc'  ? 'active' : ''}" onclick="setPlSort('date-desc')">公開日（新しい順）</button>
-          <button class="pl-sort-btn ${plDetailSortMode === 'date-asc'   ? 'active' : ''}" onclick="setPlSort('date-asc')">公開日（古い順）</button>
-          <button class="pl-sort-btn ${plDetailSortMode === 'added-desc' ? 'active' : ''}" onclick="setPlSort('added-desc')">追加日（新しい順）</button>
-          <button class="pl-sort-btn ${plDetailSortMode === 'added-asc'  ? 'active' : ''}" onclick="setPlSort('added-asc')">追加日（古い順）</button>
+          <button class="pl-sort-btn ${plDetailSortMode === 'date-desc'  ? 'active' : ''}" onclick="setPlSort('date-desc')">公開日(新しい順)</button>
+          <button class="pl-sort-btn ${plDetailSortMode === 'date-asc'   ? 'active' : ''}" onclick="setPlSort('date-asc')">公開日(古い順)</button>
+          <button class="pl-sort-btn ${plDetailSortMode === 'added-desc' ? 'active' : ''}" onclick="setPlSort('added-desc')">追加日(新しい順)</button>
+          <button class="pl-sort-btn ${plDetailSortMode === 'added-asc'  ? 'active' : ''}" onclick="setPlSort('added-asc')">追加日(古い順)</button>
           <button class="pl-sort-btn ${plDetailSortMode === 'custom'     ? 'active' : ''}" onclick="setPlSort('custom')">カスタム</button>
         </div>
       </div>
       <div class="pl-content">
         <div class="pl-detail-title-block">
           <div class="pl-detail-title">${escapeHtml(pl.name)}</div>
-          <div class="pl-detail-subtitle">${detailSongs.length} songs in this view</div>
         </div>
         ${detailSongs.length ? `
           <div class="list-action-bar">
@@ -4225,9 +4425,6 @@
 
     if (!songs.length) {
       page.innerHTML = `
-        <div class="pl-topbar">
-          <div class="pl-topbar-row"><span class="page-kicker">Home</span></div>
-        </div>
         <div style="flex:1;display:flex;align-items:center;justify-content:center;">
           <div style="color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">Loading...</div>
         </div>`;
@@ -4259,9 +4456,10 @@
       return `
       <div class="home-card ${currentSong && s.id === currentSong.id ? 'playing' : ''}" onclick="${clickHandler}">
         <img class="home-card-thumb"
-          src="https://img.youtube.com/vi/${escapeHtml(s.videoId)}/mqdefault.jpg"
+          src="${getYouTubeThumbnail(s.videoId)}"
+          data-video-id="${escapeHtml(s.videoId)}"
           alt="${escapeHtml(s.title)}" loading="lazy"
-          onerror="this.style.opacity='0'">
+          onerror="fallbackYouTubeThumbnail(this)">
         <div class="home-card-info">
           <div class="home-card-title">${escapeHtml(s.title)}</div>
           <div class="home-card-artist">${escapeHtml(s.artist)}</div>
@@ -4272,9 +4470,6 @@
     }).join('');
 
     page.innerHTML = `
-      <div class="pl-topbar">
-        <div class="pl-topbar-row"><span class="page-kicker">Home</span></div>
-      </div>
       <div class="home-content">
 
         <!-- Artist profile -->
@@ -4301,7 +4496,7 @@
                 </a>
                 <a class="profile-link tw" href="https://x.com/rai_173" target="_blank" rel="noopener">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  Twitter / X
+                  Twitter
                 </a>
               </div>
             </div>
@@ -4337,98 +4532,92 @@
     if (!page) return;
 
     page.innerHTML = `
-      <div class="pl-topbar">
-        <div class="pl-topbar-row"><span class="page-kicker">About</span></div>
-      </div>
       <div class="about-content">
         <div class="about-inner">
 
-          <!-- このサイトについて -->
           <div class="about-section">
             <div class="about-section-title">
-              このサイトについて
+              About
               <div class="about-title-line"></div>
             </div>
             <div class="about-body">
-              「<strong>MISOLABO（みそらぼ）</strong>」は、にじさんじライバー・<strong>伊波ライ</strong>さんの非公式ファンサイトです。<br>
-              伊波ライさんが歌唱・制作に携わった楽曲をまとめたデータベースとして、ファンが個人で制作・運営しています。<br><br>
-              本サイトは ANYCOLOR株式会社および公式関係者とは一切関係ありません。<br>
-              ファンの皆さまに楽しんでいただくことを目的として運営しております。<br><br>
-              また、本サイト内で再生される動画は、すべてYouTube上の動画を直接埋め込んで掲載しています。<br>
-              そのため、動画の再生数はライバーさんのYouTubeチャンネルへ正式に反映されます。安心してご利用ください。
+              MISOLABO（みそらぼ）は、にじさんじ所属ライバー・伊波ライの歌声を記録する、小さなラボです。<br>
+              伊波ライさんの歌の魅力に、より多くの方が触れられる場になればと思い、この非公式ファンサイトを制作しました。<br>
+              歌枠・歌ってみた・ライブ出演など、さまざまな歌唱コンテンツを収録しています。<br>
+              楽曲単位で検索・再生でき、お気に入りの一曲をいつでも見つけてお楽しみいただけます。
             </div>
           </div>
 
-          <!-- 主な機能 -->
           <div class="about-section">
             <div class="about-section-title">
-              主な機能
+              Lab Features
               <div class="about-title-line"></div>
             </div>
             <div class="about-feature-list">
               <div class="about-feature-item">
-                <span class="about-feature-label">Database</span>
-                <div class="about-feature-desc">伊波ライさんの歌唱楽曲を一覧できます。タグ・コラボレーターでの絞り込みや並び替えに対応しています。</div>
+                <div class="about-feature-label">Database</div>
+                <ul class="about-list">
+                  <li>伊波ライさんがこれまで歌唱した楽曲を一覧で閲覧できます（非公開楽曲を含む）</li>
+                  <li>FILTER / SORT / SEARCH 機能に対応</li>
+                  <li>楽曲詳細ページ内の <strong>COLLABORATORS</strong> タグから、共演楽曲を絞り込み表示可能</li>
+                </ul>
               </div>
               <div class="about-feature-item">
-                <span class="about-feature-label">My Favorites</span>
-                <div class="about-feature-desc">気に入った楽曲を ★ マークでお気に入り登録できます。登録した楽曲はブラウザに保存されます。</div>
+                <div class="about-feature-label">My Favorites</div>
+                <ul class="about-list">
+                  <li>気になった楽曲を、お気に入りとして保存できます</li>
+                  <li>楽曲一覧、またはプレイヤー右側の ☆ アイコンから登録可能</li>
+                </ul>
               </div>
               <div class="about-feature-item">
-                <span class="about-feature-label">Playlist</span>
-                <div class="about-feature-desc">お気に入りの楽曲でオリジナルのプレイリストを作成・管理できます。曲順のカスタマイズにも対応しています。</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Version Changelog -->
-          <div class="about-section">
-            <div class="about-section-title">
-              Version Changelog
-              <div class="about-title-line"></div>
-            </div>
-            <div class="changelog-list">
-              <div class="changelog-entry">
-                <div class="changelog-version">v0.9.0-beta</div>
-                <ul class="changelog-items">
-                  <li>試験運用（BETA）版を公開しました</li>
-                  <li>楽曲データベース機能を実装しました</li>
-                  <li>楽曲の検索・絞り込み機能を実装しました</li>
-                  <li>動画再生および楽曲詳細情報の表示に対応しました</li>
-                  <li>UI / UX は今後も継続的に改善される予定です</li>
+                <div class="about-feature-label">Playlist（Beta）</div>
+                <ul class="about-list">
+                  <li>画面下部プレイヤーの「＋」から楽曲をプレイリストに追加可能</li>
+                  <li>追加日 / 公開日での並び替えに対応</li>
+                  <li>ドラッグ＆ドロップによるカスタム並び替えにも対応</li>
                 </ul>
               </div>
             </div>
           </div>
 
-          <!-- 免責事項 -->
           <div class="about-section">
             <div class="about-section-title">
-              免責事項
+              Update Log
               <div class="about-title-line"></div>
             </div>
-            <div class="about-disclaimer">
-              本サイトは <strong>ANYCOLOR株式会社様</strong> 及びにじさんじプロジェクト、各種関係会社とは一切関係がございません。<br>
-              掲載しているすべての動画・画像等のコンテンツは各権利者に帰属します。<br>
-              本サイトはファンが個人の趣味として制作したものであり、営利目的ではございません。<br>
-              掲載内容は予告なく変更・削除される場合がございます。
+            <div class="changelog-list">
+              <div class="changelog-entry">
+                <div class="changelog-version">Ver 0.9.0</div>
+                <ul class="changelog-items">
+                  <li>試験運用版（BETA）公開</li>
+                </ul>
+              </div>
             </div>
           </div>
 
-          <!-- お問い合わせ -->
           <div class="about-section">
             <div class="about-section-title">
-              お問い合わせ
+              Contact
               <div class="about-title-line"></div>
             </div>
             <div class="about-body">
-              本サイトの情報に誤りや漏れがある場合は、下記のTwitter（X）アカウントよりお気軽にお知らせください。<br>
-              個人が管理するファンサイトのため、至らない点がある場合はどうかご了承ください。
+              掲載情報に誤りや漏れなどがありましたら、
+              下記の X（Twitter）アカウント、またはマシュマロまでお気軽にご連絡ください。<br>
+              特に、楽曲の再生開始・終了タイミングにずれがある場合は、
+              正確なタイムスタンプをご連絡いただけますと大変助かります。<br>
+              個人運営のファンサイトのため至らない点もあるかと思いますが、
+              あたたかく見守っていただけますと幸いです。
             </div>
-            <a class="about-contact-link" href="https://x.com/sshk_abyss" target="_blank" rel="noopener">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-              Twitter / X — @sshk_abyss
-            </a>
+            <div class="about-contact-links">
+              <a class="about-contact-link" href="https://x.com/sshk_abyss" target="_blank" rel="noopener">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                Twitter — @sshk_abyss
+              </a>
+              <a class="about-contact-link" href="https://marshmallow-qa.com/sshk_abyss" target="_blank" rel="noopener">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+                Marshmallow
+              </a>
+            </div>
           </div>
 
         </div>
