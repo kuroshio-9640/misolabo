@@ -4,10 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MISOLABO - 伊波ライ非公式ファンサイト -</title>
+<link rel="icon" type="image/svg+xml" sizes="32x32" href="assets/misolabo-favicon_32X32.svg">
+<link rel="icon" type="image/svg+xml" sizes="64x64" href="assets/misolabo-favicon_64X64.svg">
+<link rel="icon" type="image/svg+xml" sizes="128x128" href="assets/misolabo-favicon_128X128.svg">
+<link rel="icon" type="image/svg+xml" sizes="256x256" href="assets/misolabo-favicon_256X256.svg">
+<link rel="apple-touch-icon" href="assets/misolabo-favicon_256X256.svg">
 <script>
+  const initialTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   document.documentElement.setAttribute(
     'data-theme',
-    window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+    initialTheme
   );
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
