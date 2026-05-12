@@ -580,6 +580,9 @@
       flex-direction: column;
       justify-content: flex-end;
     }
+    body.yt-open #ytCollabSection.yt-hidden {
+      display: none !important;
+    }
     body.yt-open #ytDateSection {
       grid-area: date;
       align-self: end;
@@ -2699,7 +2702,7 @@
       </div>
 
       <div class="yt-meta-group">
-        <div class="yt-meta-block" id="ytCollabSection" style="display:none;">
+        <div class="yt-meta-block yt-hidden" id="ytCollabSection" style="display:none;">
           <div class="yt-meta-label">Collaborators</div>
           <!-- divider removed -->
           <div class="yt-collab-chips" id="ytCollabChips"></div>
@@ -3674,16 +3677,14 @@
   }
 
   // ── YouTube Side Panel
-  function openYT() {
-    document.getElementById('ytSide').classList.add('open');
-    document.body.classList.add('yt-open');
-    document.getElementById('ytMobileCloseBar')?.classList.add('show');
+  function updateYtInfo() {
+    if (!currentSong) return;
     document.getElementById('ytSongTitle').textContent  = currentSong.title;
     document.getElementById('ytSongArtist').textContent = currentSong.artist;
     document.getElementById('ytSongTags').innerHTML = currentSong.tags.map(t =>
       `<span class="song-tag ${t.toLowerCase()}">${t}</span>`).join('');
 
-    // Collab chips (keep raw split for individual chips)
+    // Collab chips
     const collabSection = document.getElementById('ytCollabSection');
     const collabChips   = document.getElementById('ytCollabChips');
     if (currentSong.collaborators && currentSong.collaborators.trim()) {
@@ -3691,8 +3692,11 @@
       collabChips.innerHTML = names.map(n =>
         `<span class="collab-chip ${collabFilter === n ? 'active' : ''}" onclick="filterByCollab('${n.replace(/'/g, "\\'")}')">${n}</span>`
       ).join('');
+      collabSection.classList.remove('yt-hidden');
       collabSection.style.display = '';
     } else {
+      collabChips.innerHTML = '';
+      collabSection.classList.add('yt-hidden');
       collabSection.style.display = 'none';
     }
 
@@ -3714,7 +3718,13 @@
     } else {
       dateSection.style.display = 'none';
     }
+  }
 
+  function openYT() {
+    document.getElementById('ytSide').classList.add('open');
+    document.body.classList.add('yt-open');
+    document.getElementById('ytMobileCloseBar')?.classList.add('show');
+    updateYtInfo();
     if (!ytApiReady) { pendingPlay = true; return; }
     createYTPlayer();
   }
@@ -3722,6 +3732,7 @@
   function createYTPlayer() {
     stopProgressUpdate();
     if (!ytApiReady || !currentSong) { pendingPlay = true; return; }
+    updateYtInfo();
 
     if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
       // ── Reuse existing player: load new video
@@ -4607,7 +4618,7 @@
                 </ul>
               </div>
               <div class="about-feature-item">
-                <div class="about-feature-label">Playlist（Beta）</div>
+                <div class="about-feature-label">Playlist</div>
                 <ul class="about-list">
                   <li>画面下部プレイヤーの「＋」から楽曲をプレイリストに追加可能</li>
                   <li>追加日 / 公開日での並び替えに対応</li>
