@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MISOLABO ⋮ みそらぼ  - 伊波ライ非公式ファンサイト -</title>
+<title>MISOLABO - 伊波ライ非公式ファンサイト -</title>
 <link rel="icon" type="image/svg+xml" sizes="32x32" href="assets/misolabo-favicon_32X32.svg">
 <link rel="icon" type="image/svg+xml" sizes="64x64" href="assets/misolabo-favicon_64X64.svg">
 <link rel="icon" type="image/svg+xml" sizes="128x128" href="assets/misolabo-favicon_128X128.svg">
@@ -784,8 +784,21 @@
     .home-content { padding: 14px 12px 36px; }
 
     /* Profile card: stack */
-    .profile-card { flex-wrap: wrap; }
-    .profile-avatar { width: 48px; height: 48px; font-size: 16px; }
+    .profile-card {
+      flex-direction: column;
+      align-items: center;
+      padding: 22px;
+      gap: 18px;
+    }
+    .profile-avatar {
+      width: min(68vw, 220px);
+      height: min(68vw, 220px);
+      font-size: 16px;
+    }
+    .profile-info {
+      width: 100%;
+      padding-top: 0;
+    }
 
     /* Playlist / About pages */
     .pl-topbar { padding: 14px 14px 10px; }
@@ -801,6 +814,11 @@
     .search-wrap { flex-basis: 150px; }
     .song-count { font-size: 8px; min-width: 58px; }
     .pl-view-toggle { width: 100%; justify-content: flex-end; margin-left: 0; }
+    .profile-card { padding: 18px; }
+    .profile-avatar {
+      width: min(78vw, 190px);
+      height: min(78vw, 190px);
+    }
     .yt-song-title { font-size: 15px; }
   }
 
@@ -2317,14 +2335,15 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--r-card);
-    padding: 24px;
+    padding: 36px;
     display: flex;
-    gap: 22px;
+    gap: 32px;
     align-items: flex-start;
   }
   .profile-avatar {
-    width: 64px; height: 64px;
-    border-radius: 50%;
+    width: clamp(210px, 18vw, 240px);
+    height: clamp(210px, 18vw, 240px);
+    border-radius: var(--r-card);
     background: var(--surface2);
     border: 2px solid var(--accent-dim);
     display: flex; align-items: center; justify-content: center;
@@ -2333,28 +2352,48 @@
     font-size: 18px;
     color: var(--accent);
     font-weight: 700;
+    overflow: hidden;
   }
-  .profile-info { flex: 1; min-width: 0; }
-  .profile-name { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+  .profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    border-radius: var(--r-card);
+    display: block;
+    transform: scale(1.2);
+  }
+  .profile-info {
+    flex: 1;
+    min-width: 0;
+    padding-top: 10px;
+  }
+  .profile-name { font-size: 24px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
   .profile-name-en {
     font-family: 'Space Mono', monospace;
     font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--text-muted); margin-bottom: 14px;
   }
   .profile-bio {
-    font-size: 12px; line-height: 2.0; color: var(--text-dim); margin-bottom: 16px;
+    font-size: 12px; line-height: 2.0; color: var(--text-dim); margin-bottom: 24px;
   }
-  .profile-links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .profile-links { display: flex; gap: 14px; flex-wrap: wrap; }
   .profile-link {
-    display: flex; align-items: center; gap: 6px;
-    padding: 5px 12px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 18px;
     border-radius: var(--r-pill);
     border: 1px solid var(--border);
     color: var(--text-muted);
     text-decoration: none;
     font-family: 'Space Mono', monospace;
-    font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
     transition: all 0.15s;
+    min-height: 38px;
+  }
+  .profile-link svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
   }
   .profile-link:hover { border-color: var(--text-muted); color: var(--text); }
   .profile-link.yt:hover { border-color: #ff4444; color: #ff4444; }
@@ -4496,6 +4535,10 @@
 
     const cardHtml = (list, showCollab = true, clickMode = 'song') => list.map(s => {
       const collabStr = showCollab ? formatCollabsJP(s.collaborators) : '';
+      const recommendationTypeTag = clickMode === 'recommendation'
+        ? [(s.collaborators || '').trim() ? 'COLLAB' : 'SOLO']
+        : [];
+      const cardTags = [...new Set([...recommendationTypeTag, ...(s.tags || [])])];
       const clickHandler = clickMode === 'original'
         ? `playHomeOriginal(${s.id})`
         : clickMode === 'recommendation'
@@ -4512,7 +4555,7 @@
           <div class="home-card-title">${escapeHtml(s.title)}</div>
           <div class="home-card-artist">${escapeHtml(s.artist)}</div>
           ${collabStr ? `<div class="home-card-collab">w/ ${escapeHtml(collabStr)}</div>` : ''}
-          ${s.tags.length ? `<div class="home-card-tags">${s.tags.map(t=>`<span class="song-tag ${t.toLowerCase()}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          ${cardTags.length ? `<div class="home-card-tags">${cardTags.map(t=>`<span class="song-tag ${t.toLowerCase()}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -4524,14 +4567,13 @@
         <div class="home-section">
           <div class="profile-card">
             <div class="profile-avatar" id="profileAvatar">
-              <img src="https://unavatar.io/twitter/rai_173"
+              <img src="profile/HHpPPqQaYAAbydo.jpeg"
                    alt="伊波ライ"
-                   style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;"
                    onerror="this.parentElement.innerHTML='ラ'">
             </div>
             <div class="profile-info">
               <div class="profile-name">伊波ライ</div>
-              <div class="profile-name-en">Inami Rai &nbsp;·&nbsp; にじさんじ</div>
+              <div class="profile-name-en">Inami Rai / にじさんじ</div>
               <div class="profile-bio">
                 機械いじりの趣味が高じて、ヒーローたちのメカニックを務めることに。<br>
                 さらにその技術を転用して、自分もヒーローになってしまった。<br>
@@ -4565,7 +4607,7 @@
         ${homeRandomPicks.length ? `
         <div class="home-section">
           <div class="home-section-header">
-            <span>Pick Up !</span>
+            <span>Pick Up</span>
             <div class="home-section-line"></div>
           </div>
           <div class="home-cards">${cardHtml(homeRandomPicks, false, 'recommendation')}</div>
