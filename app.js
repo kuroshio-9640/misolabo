@@ -2,6 +2,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   const ICON_X = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
   const ICON_MESSAGE = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>`;
+  const ICON_PLAYLIST_LINES = `
+    <circle cx="5" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="18" r="1.6" fill="currentColor" stroke="none"/>
+    <line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/>`;
   const SORT_COLLATOR = new Intl.Collator(['ja', 'en'], { numeric: true, sensitivity: 'base' });
 
   const ABOUT_PAGE_CONTENT = {
@@ -23,26 +26,67 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           {
             label: 'Database',
             items: [
-              '伊波ライさんがこれまで歌唱した楽曲を一覧で閲覧できます（非公開楽曲を含む）',
-              'FILTER / SORT / SEARCH 機能に対応',
-              '楽曲詳細ページ内の <strong>COLLABORATORS</strong> タグから、共演楽曲を絞り込み表示可能',
+              '再生可能な楽曲データと、ライブ・限定公開・消える歌枠などの記録用データをまとめて検索可能',
+              'FILTER / SORT / SEARCH / COLLAB 絞り込みに対応',
+              '再生不可の記録用データは通常の楽曲より淡く表示（リンクがある場合は関連ページへ移動可能）',
             ],
           },
           {
             label: 'My Favorites',
             items: [
-              '気になった楽曲を、お気に入りとして保存できます',
-              '楽曲一覧、またはプレイヤー右側の ☆ アイコンから登録可能',
+              '気になった再生可能楽曲を、お気に入りとして保存可能',
+              '楽曲一覧、またはプレイヤー右側の「☆」アイコンから登録',
             ],
           },
           {
             label: 'Playlist',
             items: [
-              '画面下部プレイヤーの「＋」から楽曲をプレイリストに追加可能',
-              '追加日 / 公開日での並び替えに対応',
-              'ドラッグ＆ドロップによるカスタム並び替えにも対応',
+              '楽曲一覧、または画面下部プレイヤーの「＋」から再生可能楽曲をプレイリストに追加可能',
+              'あらかじめ用意された PICK UP プレイリストと、ユーザー作成プレイリストに対応',
             ],
           },
+        ],
+      },
+      {
+        type: 'changelog',
+        title: 'System Log',
+        entries: [
+          {
+            version: 'Ver 0.9.5',
+            items: [
+              'ライブ・限定公開・消える歌枠などの記録用データも検索対象に追加',
+              'COLLAB ポップアップを追加し、共演者タグによる複数選択フィルターに対応',
+              'プレイリスト機能を整理し、PICK UP プレイリスト、作成モーダル、一覧からの追加操作を改善',
+              '合作者名の表示順をデビュー順ベースに統一',
+            ],
+          },
+          {
+            version: 'Ver 0.9.0',
+            items: ['試験運用版（BETA）公開'],
+          },
+        ],
+      },
+      {
+        type: 'contact',
+        title: 'Contact',
+        lines: [
+          '掲載情報に誤りや漏れなどがありましたら、',
+          '下記の X（Twitter）アカウント、またはマシュマロまでお気軽にご連絡ください。',
+          '特に、楽曲の再生開始・終了タイミングにずれがある場合は、正確なタイムスタンプをご連絡いただけますと大変助かります。',
+          '個人運営のファンサイトのため至らない点もあるかと思いますが、あたたかく見守っていただけますと幸いです。',
+        ],
+        links: [
+          { label: 'Twitter', href: 'https://x.com/___mslb0173', icon: ICON_X },
+          { label: 'Marshmallow', href: 'https://marshmallow-qa.com/9nz5xo0n54zy77', icon: ICON_MESSAGE },
+        ],
+      },
+      {
+        type: 'links',
+        title: 'Special Thanks',
+        links: [
+          { label: 'にじさんじ非公式Wiki', href: 'https://wikiwiki.jp/nijisanji/%E4%BC%8A%E6%B3%A2%E3%83%A9%E3%82%A4' },
+          { label: 'ちまうた', href: 'https://chimauta.pages.dev' },
+          { label: 'Nana Cheer!', href: 'https://nanaga-kita.com' },
         ],
       },
       {
@@ -53,40 +97,6 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           '掲載しているすべての動画・画像等のコンテンツは各権利者に帰属します。',
           '本サイトはファンが個人の趣味として制作したものであり、営利目的ではございません。',
           '掲載内容は予告なく変更・削除される場合がございます。',
-        ],
-      },
-      {
-        type: 'contact',
-        title: 'Contact',
-        lines: [
-          '掲載情報に誤りや漏れなどがありましたら、',
-          '下記の X（Twitter）アカウント、またはマシュマロまでお気軽にご連絡ください。',
-          '特に、楽曲の再生開始・終了タイミングにずれがある場合は、',
-          '正確なタイムスタンプをご連絡いただけますと大変助かります。',
-          '個人運営のファンサイトのため至らない点もあるかと思いますが、',
-          'あたたかく見守っていただけますと幸いです。',
-        ],
-        links: [
-          { label: 'Twitter', href: 'https://x.com/krso_0', icon: ICON_X },
-          { label: 'Marshmallow', href: 'https://marshmallow-qa.com/krso_0', icon: ICON_MESSAGE },
-        ],
-      },
-      {
-        type: 'links',
-        title: 'Special Thanks',
-        links: [
-          { label: 'にじさんじ非公式Wiki', href: 'https://wikiwiki.jp/nijisanji/%E4%BC%8A%E6%B3%A2%E3%83%A9%E3%82%A4' },
-          { label: 'ちまうた', href: 'https://chimauta.pages.dev' },
-        ],
-      },
-      {
-        type: 'changelog',
-        title: 'System Log',
-        entries: [
-          {
-            version: 'Ver 0.9.0',
-            items: ['試験運用版（BETA）公開'],
-          },
         ],
       },
     ],
@@ -166,19 +176,97 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   // ── Format collaborators: split by , 、 × and join with "/"
+  const COLLABORATOR_ORDER = [
+    '樋口楓',
+    '夕陽リリ',
+    '森中花咲',
+    '社築',
+    '緑仙',
+    '成瀬鳴',
+    '鷹宮リオン',
+    '竜胆尊',
+    '町田ちま',
+    'ジョー・力一',
+    '夢追翔',
+    '戌亥とこ',
+    '三枝明那',
+    'レヴィ・エリファ',
+    '葉加瀬冬雪',
+    'シェリン・バーガンディ',
+    '星川サラ',
+    '山神カルタ',
+    '不破湊',
+    '白雪巴',
+    'ましろ爻',
+    'ミン スゥーハ',
+    'フレン・E・ルスタリオ',
+    '長尾景',
+    '弦月藤士郎',
+    '甲斐田晴',
+    '東堂コハク',
+    'オリバー・エバンス',
+    '闇ノシュウ',
+    '天ヶ瀬むゆ',
+    '壱百満天原サロメ',
+    '風楽奏斗',
+    '渡会雲雀',
+    'セラフ・ダズルガーデン',
+    '鏑木ろこ',
+    '倉持めると',
+    '佐伯イッテツ',
+    '赤城ウェン',
+    '宇佐美リト',
+    '緋八マナ',
+    '星導ショウ',
+    '叢雲カゲツ',
+    '小柳ロウ',
+    'Yu Q. Wilson',
+    'Vantacrow Bringer',
+    'Vezalius Bandage',
+    'ミラン・ケストレル',
+    '北見遊征',
+    '魁星',
+    '榊ネス',
+    '珠乃井ナナ',
+    'ルンルン',
+    '早乙女ベリー',
+    '雲母たまこ',
+    '酒寄颯馬',
+    '渚トラウト',
+    '篠宮ゆの',
+    '花籠つばさ',
+  ];
+
+  const COLLABORATOR_ORDER_INDEX = new Map(
+    COLLABORATOR_ORDER.map((name, index) => [name, index])
+  );
+
   function splitCollaborators(raw) {
     if (Array.isArray(raw)) return raw.map(n => String(n).trim()).filter(Boolean);
     if (!raw || !String(raw).trim()) return [];
     return String(raw).split(/[,、×]/).map(n => n.trim()).filter(Boolean);
   }
 
+  function sortCollaborators(names) {
+    return [...names].sort((a, b) => {
+      const ai = COLLABORATOR_ORDER_INDEX.has(a) ? COLLABORATOR_ORDER_INDEX.get(a) : Infinity;
+      const bi = COLLABORATOR_ORDER_INDEX.has(b) ? COLLABORATOR_ORDER_INDEX.get(b) : Infinity;
+      if (ai !== bi) return ai - bi;
+      return SORT_COLLATOR.compare(a, b);
+    });
+  }
+
+  function getSortedCollaborators(raw) {
+    return sortCollaborators(splitCollaborators(raw));
+  }
+
   function formatCollabs(raw) {
-    return splitCollaborators(raw).join('/');
+    return getSortedCollaborators(raw).join('/');
   }
 
   // ── Format collaborators for home cards: join with 、
   function formatCollabsJP(raw) {
-    return splitCollaborators(raw).join('、');
+    return getSortedCollaborators(raw).join('、');
   }
 
   // ── Song data cache (localStorage)
@@ -492,15 +580,17 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           ${isManualRecord && s.note ? `<div class="song-record-note">${escapeHtml(s.note)}</div>` : ''}
         </div>
         <div class="song-meta">
-          ${recordMeta}
-          ${isManualRecord ? '' : `<button class="song-fav ${favorites.has(s.id) ? 'active' : ''}" onclick="toggleFav(event, ${s.id})" aria-label="Favorite ${escapeHtml(s.title)}" aria-pressed="${favorites.has(s.id)}">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="${favorites.has(s.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-            </svg>
-          </button>
-          <button class="song-playlist-add" onclick="openAddToPlaylist(event, ${s.id})" aria-label="Add ${escapeHtml(s.title)} to playlist">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>`}
+          <div class="song-tags">${recordMeta}</div>
+          <div class="song-actions ${isManualRecord ? 'placeholder' : ''}" aria-hidden="${isManualRecord}">
+            ${isManualRecord ? '' : `<button class="song-fav ${favorites.has(s.id) ? 'active' : ''}" onclick="toggleFav(event, ${s.id})" aria-label="Favorite ${escapeHtml(s.title)}" aria-pressed="${favorites.has(s.id)}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="${favorites.has(s.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>
+            <button class="song-playlist-add" onclick="openAddToPlaylist(event, ${s.id})" aria-label="Add ${escapeHtml(s.title)} to playlist">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>`}
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -798,15 +888,21 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function getCollaboratorStats() {
-    const counts = new Map();
+    const stats = new Map();
     songs.forEach(song => {
       new Set(splitCollaborators(song.collaborators)).forEach(name => {
-        counts.set(name, (counts.get(name) || 0) + 1);
+        const current = stats.get(name) || { name, trackCount: 0, totalCount: 0 };
+        current.totalCount += 1;
+        if (song.recordKind !== 'manual') current.trackCount += 1;
+        stats.set(name, current);
       });
     });
-    return [...counts.entries()]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || SORT_COLLATOR.compare(a.name, b.name));
+    return [...stats.values()]
+      .sort((a, b) =>
+        b.trackCount - a.trackCount ||
+        b.totalCount - a.totalCount ||
+        SORT_COLLATOR.compare(a.name, b.name)
+      );
   }
 
   function renderCollabPopupList() {
@@ -816,31 +912,14 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (!list) return;
 
     const stats = getCollaboratorStats();
-    const primaryStats = stats.filter(({ count }) => count >= 5);
-    const moreStats = stats.filter(({ count }) => count < 5);
-    const visibleStats = collabShowMore
-      ? [...primaryStats, ...moreStats]
-      : primaryStats;
-
-    if (sub) {
-      sub.textContent = selectedCollabs.size
-        ? `${selectedCollabs.size} selected / ${stats.length} collaborators`
-        : `${primaryStats.length} frequent collaborators`;
-    }
-
     if (!stats.length) {
       list.innerHTML = '<div class="collab-popup-empty">No collaborators found.</div>';
       if (moreSlot) moreSlot.innerHTML = '';
+      if (sub) sub.textContent = '0 collaborators';
       return;
     }
 
-    if (!visibleStats.length) {
-      list.innerHTML = '<div class="collab-popup-empty">No frequent collaborators found.</div>';
-      if (moreSlot) moreSlot.innerHTML = '';
-      return;
-    }
-
-    const chipHtml = visibleStats.map(({ name, count }) => {
+    const chipHtml = stats.map(({ name }) => {
       const active = selectedCollabs.has(name);
       return `
         <button class="collab-filter-chip ${active ? 'active' : ''}"
@@ -849,23 +928,72 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           onclick="toggleCollabSelectionFromButton(this)"
           aria-pressed="${active}">
           <span>${escapeHtml(name)}</span>
-          <span class="collab-filter-count">${count}</span>
         </button>`;
     }).join('');
 
     list.innerHTML = chipHtml;
 
     if (moreSlot) {
-      moreSlot.innerHTML = moreStats.length
-      ? `<button class="collab-more-btn ${collabShowMore ? 'active' : ''}"
+      moreSlot.style.display = '';
+      moreSlot.innerHTML = `<button class="collab-more-btn ${collabShowMore ? 'active' : ''}"
           type="button"
           onclick="toggleCollabMore()"
           aria-expanded="${collabShowMore}">
           <span class="collab-action-icon" aria-hidden="true">${collabShowMore ? '-' : '+'}</span>
           <span class="collab-action-label">${collabShowMore ? 'LESS' : 'MORE'}</span>
-        </button>`
-      : '';
+        </button>`;
     }
+
+    applyCollabRowCollapse(stats.length);
+  }
+
+  function getCollabCollapsedRows() {
+    return window.matchMedia('(max-width: 1100px)').matches ? 3 : 4;
+  }
+
+  function applyCollabRowCollapse(totalCount) {
+    const list = document.getElementById('collabPopupList');
+    const sub = document.getElementById('collabPopupSub');
+    const moreSlot = document.getElementById('collabMoreSlot');
+    if (!list) return;
+
+    const chips = [...list.querySelectorAll('.collab-filter-chip')];
+    chips.forEach(chip => chip.hidden = false);
+
+    if (collabShowMore) {
+      if (sub) {
+        sub.textContent = selectedCollabs.size
+          ? `${selectedCollabs.size} selected / ${totalCount} collaborators`
+          : `${totalCount} collaborators`;
+      }
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const rowLimit = getCollabCollapsedRows();
+      const visibleChips = [...list.querySelectorAll('.collab-filter-chip')];
+      const rowTops = [];
+      visibleChips.forEach(chip => {
+        const top = Math.round(chip.offsetTop);
+        if (!rowTops.some(rowTop => Math.abs(rowTop - top) <= 3)) rowTops.push(top);
+      });
+      rowTops.sort((a, b) => a - b);
+
+      chips.forEach(chip => {
+        const rowIndex = rowTops.findIndex(rowTop => Math.abs(rowTop - Math.round(chip.offsetTop)) <= 3);
+        chip.hidden = rowIndex >= rowLimit;
+      });
+
+      const visibleCount = chips.filter(chip => !chip.hidden).length;
+      const hasHidden = visibleCount < totalCount;
+      if (moreSlot) moreSlot.style.display = hasHidden ? '' : 'none';
+
+      if (sub) {
+        sub.textContent = selectedCollabs.size
+          ? `${selectedCollabs.size} selected / ${totalCount} collaborators`
+          : `${visibleCount} top collaborators`;
+      }
+    });
   }
 
   function toggleCollabPopup(e) {
@@ -1242,7 +1370,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const collabSection = document.getElementById('ytCollabSection');
     const collabChips   = document.getElementById('ytCollabChips');
     if (currentSong.collaborators && currentSong.collaborators.trim()) {
-      const names = splitCollaborators(currentSong.collaborators);
+      const names = getSortedCollaborators(currentSong.collaborators);
       collabChips.innerHTML = names.map(n =>
         `<span class="collab-chip ${selectedCollabs.has(n) ? 'active' : ''}" onclick="filterByCollab('${n.replace(/'/g, "\\'")}')">${escapeHtml(n)}</span>`
       ).join('');
@@ -1515,6 +1643,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (e.key === 'Escape') closeCollabPopup();
   });
 
+  window.addEventListener('resize', () => {
+    if (collabPopupOpen && !collabShowMore) renderCollabPopupList();
+  });
+
   // ── Playlist ──────────────────────────────────
   const LS_PLAYLIST_KEY = 'inami_playlists_v1';
   const LS_PLAYLIST_VIEW_KEY = 'inami_playlist_view_mode_v1';
@@ -1539,9 +1671,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   let playlists = [];
   let currentPlaylistId = null;   // null = grid view, else detail view
   let playlistViewMode = 'card';  // 'card' | 'list'
-  let plDetailSortMode  = 'added-asc'; // 'custom' | 'added' | 'date' | 'artist'
+  let plDetailSortMode  = 'added-asc'; // 'added' | 'date' | 'artist'
   let playlistSearchQuery = '';
-  let plDragSrcIndex    = null;
   let modalSelectedPlaylists = new Set();
   let modalTargetSongId = null;
   let toastTimer = null;
@@ -1716,11 +1847,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (coverSong?.videoId) {
       return `<img src="${getYouTubeThumbnail(coverSong.videoId)}" data-video-id="${escapeHtml(coverSong.videoId)}" alt="${escapeHtml(coverSong.title)}" loading="lazy" onload="validateYouTubeThumbnail(this)" onerror="fallbackYouTubeThumbnail(this)">`;
     }
-    return `<svg class="pl-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-      <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
-      <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-    </svg>`;
+    return `<svg class="pl-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICON_PLAYLIST_LINES}</svg>`;
   }
 
   // ── Grid view (all playlists)
@@ -1751,11 +1878,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         ${playlistItems.length === 0
           ? `<div class="pl-empty">
               <div class="pl-empty-icon">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-                  <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
-                  <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-                </svg>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICON_PLAYLIST_LINES}</svg>
               </div>
               <div class="pl-empty-title">No Playlists Yet</div>
               <div class="pl-empty-sub">Create a playlist, then add songs<br>from the player ＋ button.</div>
@@ -1793,11 +1916,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                 <div class="pl-list-row ${pl.isDefault ? 'pl-list-row-pickup' : ''}" onclick="openPlaylistDetail('${pl.id}')">
                   ${pl.isDefault
                     ? `<svg class="pl-list-icon pickup" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 14.95 8.17 21.76 9.09 16.82 13.82 18.04 20.56 12 17.28 5.96 20.56 7.18 13.82 2.24 9.09 9.05 8.17 12 2"/></svg>`
-                    : `<svg class="pl-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-                        <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
-                        <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-                      </svg>`}
+                    : `<svg class="pl-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICON_PLAYLIST_LINES}</svg>`}
                   <div class="pl-list-main">
                     <div class="pl-name-row">
                       <div class="pl-list-name">${escapeHtml(pl.name)}</div>
@@ -1918,7 +2037,6 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
     const detailSongs = getVisiblePlaylistSongs(id);
 
-    const isDraggable = !pl.isDefault && plDetailSortMode === 'custom' && !playlistSearchQuery;
     const detailSongIds = detailSongs.map(s => s.id);
 
     page.innerHTML = `
@@ -1949,7 +2067,6 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           <button class="pl-sort-btn ${plDetailSortMode === 'artist-desc' ? 'active' : ''}" onclick="setPlSort('artist-desc')" aria-pressed="${plDetailSortMode === 'artist-desc'}">アーティスト名(Z→A)</button>
           <button class="pl-sort-btn ${plDetailSortMode === 'added-desc' ? 'active' : ''}" onclick="setPlSort('added-desc')" aria-pressed="${plDetailSortMode === 'added-desc'}">追加日(新しい順)</button>
           <button class="pl-sort-btn ${plDetailSortMode === 'added-asc'  ? 'active' : ''}" onclick="setPlSort('added-asc')" aria-pressed="${plDetailSortMode === 'added-asc'}">追加日(古い順)</button>
-          ${pl.isDefault ? '' : `<button class="pl-sort-btn ${plDetailSortMode === 'custom' ? 'active' : ''}" onclick="setPlSort('custom')" aria-pressed="${plDetailSortMode === 'custom'}">カスタム</button>`}
         </div>
         </div>
       </div>
@@ -1990,20 +2107,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
               ${detailSongs.map((s, i) => `
                 <div class="pl-detail-row ${currentSong && s.id === currentSong.id ? 'playing' : ''}"
                   data-song-id="${s.id}"
-                  ${isDraggable
-                    ? `draggable="true"
-                       ondragstart="plDragStart(event, ${i})"
-                       ondragover="plDragOver(event, ${i})"
-                       ondrop="plDrop(event, '${id}', ${i})"
-                       ondragleave="plDragLeave(event)"`
-                    : ''}
                   onclick="playSong(${s.id}, { type: 'playlist', playlistId: '${id}', songIds: ${JSON.stringify(detailSongIds)} })">
-                  <div class="pl-drag-handle" style="${isDraggable ? '' : 'visibility:hidden;'}">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                      <circle cx="9"  cy="5"  r="1.5"/><circle cx="9"  cy="12" r="1.5"/><circle cx="9"  cy="19" r="1.5"/>
-                      <circle cx="15" cy="5"  r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
-                    </svg>
-                  </div>
                   <div class="song-index">
                     <span class="song-num">${i + 1}</span>
                     <svg class="song-play-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -2028,40 +2132,6 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                 </div>`).join('')}
             </div>`}
       </div>`;
-  }
-
-  // ── Drag & Drop (playlist detail)
-  function plDragStart(event, idx) {
-    plDragSrcIndex = idx;
-    event.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => event.target.closest('.pl-detail-row')?.classList.add('dragging'), 0);
-  }
-
-  function plDragOver(event, idx) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    document.querySelectorAll('.pl-detail-row').forEach(r => r.classList.remove('drag-over'));
-    event.currentTarget.classList.add('drag-over');
-  }
-
-  function plDragLeave(event) {
-    event.currentTarget.classList.remove('drag-over');
-  }
-
-  function plDrop(event, playlistId, toIdx) {
-    event.preventDefault();
-    document.querySelectorAll('.pl-detail-row').forEach(r => {
-      r.classList.remove('drag-over');
-      r.classList.remove('dragging');
-    });
-    if (plDragSrcIndex === null || plDragSrcIndex === toIdx) { plDragSrcIndex = null; return; }
-    const pl = playlists.find(p => p.id === playlistId);
-    if (!pl) { plDragSrcIndex = null; return; }
-    const [moved] = pl.songs.splice(plDragSrcIndex, 1);
-    pl.songs.splice(toIdx, 0, moved);
-    plDragSrcIndex = null;
-    savePlaylistsToStorage();
-    renderPlaylistPage();
   }
 
   // ── Add-to-Playlist Modal

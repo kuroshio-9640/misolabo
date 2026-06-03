@@ -18,7 +18,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=52-kerning-2">
+<link rel="stylesheet" href="styles.css?v=52-playlist-cleanup-1">
 </head>
 <body>
 
@@ -60,7 +60,10 @@
       <span class="nav-fav-count" id="navFavCount" style="display:none;"></span>
     </button>
     <button class="nav-item" type="button" onclick="setNav(this)">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="5" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="18" r="1.6" fill="currentColor" stroke="none"/>
+        <line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/>
+      </svg>
       <span>Playlist</span>
     </button>
     <button class="nav-item" type="button" onclick="setNav(this)">
@@ -345,6 +348,6 @@
 
 <!-- ═══ SCRIPTS ═══ -->
 <script src="https://www.youtube.com/iframe_api"></script>
-<script src="app.js?v=52-manual-records-2"></script>
+<script src="app.js?v=52-about-095-1"></script>
 </body>
 </html>
