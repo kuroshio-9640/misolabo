@@ -303,6 +303,10 @@
     padding-bottom: 8px;
   }
 
+  .topbar:has(.collab-popup.open) {
+    z-index: 190;
+  }
+
   .topbar-row {
     display: grid;
     grid-template-columns: auto minmax(160px, 1fr) auto;
@@ -505,47 +509,11 @@
     body.yt-open .yt-header {
       display: flex !important;
     }
-    /* #46: 3-area grid — top-left: title/artist/tags, bottom-left: date, right: collab */
+
+    /* Compact video panel for narrow desktop/tablet widths. */
     body.yt-open .yt-info {
-      display: grid !important;
-      grid-template-areas:
-        "header  collab"
-        "date    collab";
-      grid-template-columns: 2fr 1fr;
-      grid-template-rows: 1fr auto;
-      align-items: stretch;
-      padding: 14px 20px;
-      gap: 12px 24px;
-      max-height: none;
-      overflow-y: visible;
-    }
-    body.yt-open .yt-song-header {
-      grid-area: header;
-      align-self: start;
-    }
-    /* Unwrap yt-meta-group so its children become direct grid items */
-    body.yt-open .yt-meta-group {
-      display: contents !important;
-    }
-    body.yt-open #ytCollabSection {
-      grid-area: collab;
-      display: flex !important;
-      flex-direction: column;
-      justify-content: flex-end;
-    }
-    body.yt-open #ytCollabSection.yt-hidden {
       display: none !important;
     }
-    body.yt-open #ytDateSection {
-      grid-area: date;
-      align-self: end;
-      display: block !important;
-    }
-    /* Hide VIDEO block in tablet intermediate layout */
-    body.yt-open #ytVideoSection {
-      display: none !important;
-    }
-    body.yt-open .yt-song-title { font-size: 15px; }
     body.yt-open .home-cards { grid-template-columns: repeat(3, 1fr); }
 
     /* ── #56: fixed top panel + independently scrollable song list ── */
@@ -872,7 +840,7 @@
     display: none;
     flex-direction: column;
     gap: 10px;
-    z-index: 120;
+    z-index: 190;
   }
 
   .collab-popup.open { display: flex; }
@@ -1366,6 +1334,13 @@
   /* Song info */
   .song-info { min-width: 0; }
 
+  .song-title-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
   .song-title {
     font-size: 13px;
     font-weight: 500;
@@ -1376,6 +1351,19 @@
     line-height: 1.3;
     color: var(--text-dim);
     transition: color 0.12s;
+  }
+
+  .song-memo {
+    flex-shrink: 0;
+    max-width: 46%;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .song-row:hover .song-title { color: var(--text); }
@@ -1403,15 +1391,6 @@
     opacity: 0.9;
     font-family: 'Space Mono', monospace;
     letter-spacing: 0.05em;
-  }
-
-  .song-record-note {
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   /* Song meta */
@@ -1625,6 +1604,7 @@
   .yt-collab-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 
   .collab-chip {
+    background: transparent;
     padding: 5px 14px;
     border-radius: var(--r-pill);
     font-family: 'Space Mono', monospace;
@@ -1638,7 +1618,12 @@
     user-select: none;
   }
 
-  .collab-chip:hover { border-color: var(--accent2); color: var(--accent2); }
+  .collab-chip:hover,
+  .collab-chip:focus-visible {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    outline: none;
+  }
   .collab-chip.active {
     background: var(--accent2);
     color: #FFFFFF;
@@ -2326,6 +2311,7 @@
     color: var(--text-muted);
     font-size: 12px;
     line-height: 1.8;
+    white-space: pre-line;
   }
 
   /* ── Playlist detail sort — unified with Database/Favorites sort style */
@@ -2416,6 +2402,200 @@
     display: flex;
     justify-content: center;
     margin-top: 18px;
+  }
+
+  /* ── Manual Record Detail Modal ───────────────────── */
+  .manual-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 230;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    background: rgba(0,0,0,0.48);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .manual-detail-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .manual-detail-box {
+    width: min(620px, 100%);
+    max-height: min(78vh, 720px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    box-shadow: 0 28px 78px rgba(0,0,0,0.42);
+  }
+
+  .manual-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .manual-detail-kicker {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .manual-detail-close {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .manual-detail-close:hover,
+  .manual-detail-close:focus-visible {
+    color: var(--text);
+    border-color: var(--text-muted);
+    outline: none;
+  }
+
+  .manual-detail-body {
+    overflow-y: auto;
+    padding: 20px 20px;
+  }
+
+  .manual-detail-title-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+    margin-bottom: 6px;
+  }
+
+  .manual-detail-title {
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .manual-detail-memo {
+    flex-shrink: 0;
+    max-width: 42%;
+    color: var(--text);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .manual-detail-artist {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .manual-detail-tags,
+  .manual-detail-collabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .manual-detail-tags {
+    margin-top: 14px;
+    margin-bottom: 28px;
+  }
+
+  .manual-detail-section {
+    margin-top: 12px;
+  }
+
+  .manual-detail-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .manual-detail-source {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
+  .manual-detail-source a {
+    display: block;
+    color: var(--text-dim);
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    transition: color 0.15s;
+  }
+
+  .manual-detail-source a:hover {
+    color: var(--accent);
+    text-decoration-color: var(--accent-dim);
+  }
+
+  .manual-detail-date {
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  @media (max-width: 768px) {
+    .manual-detail-overlay {
+      padding: 16px;
+    }
+
+    .manual-detail-box {
+      max-height: min(76vh, 680px);
+    }
+
+    .manual-detail-header {
+      padding: 14px 16px;
+    }
+
+    .manual-detail-body {
+      padding: 20px;
+    }
+
+    .manual-detail-title {
+      font-size: 18px;
+    }
   }
 
   /* ── Add-to-Playlist Modal ───────────────────── */
@@ -2694,11 +2874,10 @@
   .profile-avatar img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center center;
-    border-radius: var(--r-card);
+    border-radius: inherit;
     display: block;
-    transform: scale(1.2);
   }
   .profile-info {
     flex: 1;
@@ -2789,7 +2968,7 @@
     opacity: 0.58;
   }
 
-  .song-row.manual-record.has-record-link {
+  .song-row.manual-record.has-record-detail {
     cursor: pointer;
   }
 
@@ -2798,7 +2977,7 @@
     border-color: transparent !important;
   }
 
-  .song-row.manual-record.has-record-link:hover {
+  .song-row.manual-record.has-record-detail:hover {
     background: var(--surface) !important;
     border-color: var(--border) !important;
     opacity: 0.72;

@@ -18,7 +18,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=52-playlist-cleanup-1">
+<link rel="stylesheet" href="styles.css?v=53-profile-avatar-contain-1">
 </head>
 <body>
 
@@ -249,6 +249,22 @@
 
 </main>
 
+<!-- ═══ MANUAL RECORD DETAIL MODAL ═══ -->
+<div class="manual-detail-overlay" id="manualDetailOverlay" onclick="closeManualRecordDetail()">
+  <article class="manual-detail-box" role="dialog" aria-modal="true" aria-labelledby="manualDetailTitle" onclick="event.stopPropagation()">
+    <header class="manual-detail-header">
+      <span class="manual-detail-kicker">Record Detail</span>
+      <button class="manual-detail-close" type="button" onclick="closeManualRecordDetail()" aria-label="Close record detail">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        Close
+      </button>
+    </header>
+    <div class="manual-detail-body" id="manualDetailBody"></div>
+  </article>
+</div>
+
 <!-- ═══ ADD-TO-PLAYLIST MODAL ═══ -->
 <div class="modal-overlay" id="addToPlaylistOverlay">
   <div class="modal-box">
@@ -348,6 +364,7 @@
 
 <!-- ═══ SCRIPTS ═══ -->
 <script src="https://www.youtube.com/iframe_api"></script>
-<script src="app.js?v=52-about-095-1"></script>
+<script src="defaultPlaylists.js?v=52-default-playlists-3"></script>
+<script src="app.js?v=53-manual-source-link-1"></script>
 </body>
 </html>

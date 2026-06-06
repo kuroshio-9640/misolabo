@@ -333,9 +333,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         const title = record.title || record.songTitle || '';
         if (!title) return null;
         const sourceType = record.sourceType || record.source_type || '';
-        const status = record.status || '';
+        const memo = record.memo || record.status || record.note || '';
         const tags = splitListValue(record.tags);
-        const sourceChips = [sourceType, status].filter(Boolean);
+        const sourceChips = [sourceType].filter(Boolean);
 
         return {
           id: 100000 + index + 1,
@@ -351,8 +351,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           sourceType,
           sourceTitle: record.sourceTitle || record.source_title || '',
           recordUrl: record.url || record.sourceUrl || record.source_url || '',
-          status,
-          note: record.note || '',
+          memo,
           startSeconds: 0,
           endSeconds: null,
           date: formatApiDate(record.recordDate || record.record_date || record.date),
@@ -484,8 +483,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         (s.collaborators && s.collaborators.toLowerCase().includes(q)) ||
         (s.sourceTitle && s.sourceTitle.toLowerCase().includes(q)) ||
         (s.sourceType && s.sourceType.toLowerCase().includes(q)) ||
-        (s.status && s.status.toLowerCase().includes(q)) ||
-        (s.note && s.note.toLowerCase().includes(q)) ||
+        (s.memo && s.memo.toLowerCase().includes(q)) ||
         (s.tags && s.tags.some(tag => tag.toLowerCase().includes(q)));
 
       let matchTag = true;
@@ -552,17 +550,17 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       const collabStr = formatCollabs(s.collaborators);
       const isUnplayable = !s.isPlayable;
       const isManualRecord = s.recordKind === 'manual';
-      const rowAction = isUnplayable
-        ? s.recordUrl
-          ? `onclick="openManualRecord(event, ${s.id})"`
-          : ''
+      const rowAction = isManualRecord
+        ? `onclick="openManualRecord(event, ${s.id})"`
+        : isUnplayable
+          ? ''
         : `onclick="playSong(${s.id}, { source: 'current-list' })"`;
       const recordMeta = [
         ...(s.tags || []).map(t => `<span class="song-tag ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`),
         ...(s.sourceChips || []).map(t => `<span class="song-tag record-chip">${escapeHtml(t)}</span>`),
       ].join('');
       return `
-      <div class="song-row ${currentSong && s.id === currentSong.id ? 'playing' : ''} ${isUnplayable ? 'unplayable' : ''} ${isManualRecord ? 'manual-record' : ''} ${s.recordUrl ? 'has-record-link' : ''}"
+      <div class="song-row ${currentSong && s.id === currentSong.id ? 'playing' : ''} ${isUnplayable ? 'unplayable' : ''} ${isManualRecord ? 'manual-record has-record-detail' : ''}"
            data-song-id="${s.id}"
            ${rowAction}>
         <div class="song-index">
@@ -574,10 +572,12 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           </svg>` : ''}
         </div>
         <div class="song-info">
-          <div class="song-title">${escapeHtml(s.title)}</div>
+          <div class="song-title-line">
+            <div class="song-title">${escapeHtml(s.title)}</div>
+            ${isManualRecord && s.memo ? `<span class="song-memo">${escapeHtml(s.memo)}</span>` : ''}
+          </div>
           <div class="song-artist">${escapeHtml(s.artist)}</div>
           ${collabStr ? `<div class="song-collab-row">with ${escapeHtml(collabStr)}</div>` : ''}
-          ${isManualRecord && s.note ? `<div class="song-record-note">${escapeHtml(s.note)}</div>` : ''}
         </div>
         <div class="song-meta">
           <div class="song-tags">${recordMeta}</div>
@@ -599,11 +599,85 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   function openManualRecord(e, id) {
     e?.stopPropagation();
     const record = songs.find(song => song.id === Number(id));
-    if (!record?.recordUrl) return;
-    window.open(record.recordUrl, '_blank', 'noopener');
+    if (!record || record.recordKind !== 'manual') return;
+
+    renderManualRecordDetail(record);
+    document.getElementById('manualDetailOverlay')?.classList.add('open');
+    document.querySelector('.manual-detail-close')?.focus();
+  }
+
+  function closeManualRecordDetail() {
+    document.getElementById('manualDetailOverlay')?.classList.remove('open');
+  }
+
+  function getManualRecordSourceLabel(record) {
+    return record.sourceTitle || record.sourceType || record.recordUrl || 'Source unavailable';
+  }
+
+  function isSafeExternalUrl(url) {
+    return /^https?:\/\//i.test(String(url || '').trim());
+  }
+
+  function renderManualRecordDetail(record) {
+    const body = document.getElementById('manualDetailBody');
+    if (!body) return;
+
+    const tags = [
+      ...(record.tags || []).map(t => `<span class="song-tag ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`),
+      ...(record.sourceChips || []).map(t => `<span class="song-tag record-chip">${escapeHtml(t)}</span>`),
+    ].join('');
+    const collabs = getSortedCollaborators(record.collaborators);
+    const collabHtml = collabs.length
+      ? `<section class="manual-detail-section">
+          <div class="manual-detail-label">Collaborators</div>
+          <div class="manual-detail-collabs">
+            ${collabs.map(name => `
+              <button class="collab-chip" type="button" data-collab="${escapeHtml(name)}" onclick="selectManualDetailCollab(this)">
+                ${escapeHtml(name)}
+              </button>`).join('')}
+          </div>
+        </section>`
+      : '';
+    const sourceLabel = getManualRecordSourceLabel(record);
+    const sourceHtml = isSafeExternalUrl(record.recordUrl)
+      ? `<a class="manual-detail-source-link" href="${escapeHtml(record.recordUrl)}" target="_blank" rel="noopener">${escapeHtml(sourceLabel)}</a>`
+      : escapeHtml(sourceLabel);
+    const sourceSection = sourceLabel || record.recordUrl
+      ? `<section class="manual-detail-section">
+          <div class="manual-detail-label">Source</div>
+          <div class="manual-detail-source">${sourceHtml}</div>
+        </section>`
+      : '';
+    const dateSection = record.date
+      ? `<section class="manual-detail-section">
+          <div class="manual-detail-label">Date</div>
+          <div class="manual-detail-date">${escapeHtml(record.date)}</div>
+        </section>`
+      : '';
+
+    body.innerHTML = `
+      <div class="manual-detail-title-line">
+        <div class="manual-detail-title" id="manualDetailTitle">${escapeHtml(record.title)}</div>
+        ${record.memo ? `<span class="manual-detail-memo">${escapeHtml(record.memo)}</span>` : ''}
+      </div>
+      <div class="manual-detail-artist">${escapeHtml(record.artist)}</div>
+      ${tags ? `<div class="manual-detail-tags">${tags}</div>` : ''}
+      ${collabHtml}
+      ${sourceSection}
+      ${dateSection}
+    `;
+  }
+
+  function selectManualDetailCollab(button) {
+    const name = button?.dataset?.collab;
+    if (!name) return;
+    closeManualRecordDetail();
+    filterByCollab(name);
   }
 
   window.openManualRecord = openManualRecord;
+  window.closeManualRecordDetail = closeManualRecordDetail;
+  window.selectManualDetailCollab = selectManualDetailCollab;
 
   // ── Playback
   function setQueueSource(type, songIds, playlistId = null) {
@@ -1640,7 +1714,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeCollabPopup();
+    if (e.key === 'Escape') {
+      closeManualRecordDetail();
+      closeCollabPopup();
+    }
   });
 
   window.addEventListener('resize', () => {
@@ -1650,24 +1727,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   // ── Playlist ──────────────────────────────────
   const LS_PLAYLIST_KEY = 'inami_playlists_v1';
   const LS_PLAYLIST_VIEW_KEY = 'inami_playlist_view_mode_v1';
-  const DEFAULT_PLAYLISTS = [
-    {
-      id: 'pickup-first-inami',
-      name: 'はじめての伊波ライ',
-      description: '初めて聴く人に向けた入口のプレイリスト。歌枠、歌ってみた、コラボから聴きやすい曲を少しずつ集めました。',
-      badge: 'PICK UP',
-      songRefs: [
-        { title: 'シルエット', artist: 'KANA-BOON' },
-        { title: '全力少年', artist: 'スキマスイッチ' },
-        { title: 'アスノヨゾラ哨戒班', artist: 'Orangestar' },
-        { title: '怪獣の花唄', artist: 'Vaundy' },
-        { title: 'スターマーカー', artist: 'KANA-BOON' },
-        { title: 'ブルーアンビエンス', artist: 'Mrs. GREEN APPLE' },
-        { title: 'ステラ', artist: 'じん' },
-        { title: 'ライラック', artist: 'Mrs. GREEN APPLE' },
-      ],
-    },
-  ];
+  const DEFAULT_PLAYLISTS = window.MISOLABO_DEFAULT_PLAYLISTS || [];
   let playlists = [];
   let currentPlaylistId = null;   // null = grid view, else detail view
   let playlistViewMode = 'card';  // 'card' | 'list'
@@ -1703,6 +1763,25 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   function findSongByRef(ref) {
     const title = normalizePlaylistText(ref.title);
     const artist = normalizePlaylistText(ref.artist);
+    const videoId = normalizePlaylistText(ref.videoId);
+
+    if (videoId && title && artist) {
+      const exact = songs.find(song =>
+        normalizePlaylistText(song.videoId) === videoId &&
+        normalizePlaylistText(song.title) === title &&
+        normalizePlaylistText(song.artist) === artist
+      );
+      if (exact) return exact;
+    }
+
+    if (videoId && title) {
+      const byVideoAndTitle = songs.find(song =>
+        normalizePlaylistText(song.videoId) === videoId &&
+        normalizePlaylistText(song.title) === title
+      );
+      if (byVideoAndTitle) return byVideoAndTitle;
+    }
+
     return songs.find(song =>
       normalizePlaylistText(song.title) === title &&
       (!artist || normalizePlaylistText(song.artist) === artist)
@@ -2305,7 +2384,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         <div class="home-section">
           <div class="profile-card">
             <div class="profile-avatar" id="profileAvatar">
-              <img src="profile/HHpPPqQaYAAbydo.jpeg"
+              <img src="profile/profile_inami.png"
                    alt="伊波ライ"
                    onerror="this.parentElement.innerHTML='ラ'">
             </div>
