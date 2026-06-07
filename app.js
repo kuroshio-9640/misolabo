@@ -131,6 +131,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   let collabShowMore  = false;
 
   // Home page random picks (cached per visit)
+  let homeNewPicks = [];
   let homeRandomPicks = [];
 
   // ── localStorage helpers
@@ -436,7 +437,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (cached && cached.length) {
       songs = cached;
       initializeDefaultQueue();
-      if (currentView === 'home') { homeRandomPicks = []; renderHomePage(); }
+      if (currentView === 'home') { homeNewPicks = []; homeRandomPicks = []; renderHomePage(); }
       else renderSongs();
       if (collabPopupOpen) renderCollabPopupList();
       return;
@@ -457,6 +458,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       saveSongsToCache(songs); // cache for 30 minutes
       initializeDefaultQueue();
       if (currentView === 'home') {
+        homeNewPicks = [];
         homeRandomPicks = [];
         renderHomePage();
       } else {
@@ -1370,6 +1372,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         if (activePlaylistExists && currentSong) scrollToSong(currentSong.id);
       } else if (view === 'home') {
         homePage.classList.add('active');
+        homeNewPicks = [];
         homeRandomPicks = [];
         renderHomePage();
       } else {
@@ -2322,6 +2325,62 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   // ── Home Page ──────────────────────────────────
+  function getSongDateValue(song) {
+    if (!song?.date) return 0;
+    const time = Date.parse(String(song.date).replace(/\//g, '-'));
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function pickRandomSong(list) {
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function getLatestVideoRandomPicks(limit = 4) {
+    const videoGroups = new Map();
+
+    songs
+      .filter(song => {
+        return song.recordKind !== 'manual' && song.isPlayable && song.videoId;
+      })
+      .forEach(song => {
+        const dateValue = getSongDateValue(song);
+        const group = videoGroups.get(song.videoId);
+        if (group) {
+          group.songs.push(song);
+          if (dateValue > group.dateValue) {
+            group.date = song.date || '';
+            group.dateValue = dateValue;
+          }
+          return;
+        }
+
+        videoGroups.set(song.videoId, {
+          videoId: song.videoId,
+          date: song.date || '',
+          dateValue,
+          songs: [song],
+        });
+      });
+
+    return [...videoGroups.values()]
+      .sort((a, b) => {
+        if (a.dateValue !== b.dateValue) return b.dateValue - a.dateValue;
+        return SORT_COLLATOR.compare(b.date || '', a.date || '') ||
+          SORT_COLLATOR.compare(a.videoId, b.videoId);
+      })
+      .slice(0, limit)
+      .map(group => ({
+        song: pickRandomSong(group.songs),
+        dateValue: group.dateValue,
+        videoId: group.videoId,
+      }))
+      .sort((a, b) => {
+        if (a.dateValue !== b.dateValue) return b.dateValue - a.dateValue;
+        return SORT_COLLATOR.compare(a.videoId, b.videoId);
+      })
+      .map(item => item.song);
+  }
+
   function renderHomePage() {
     const page = document.getElementById('homePage');
     if (!page) return;
@@ -2347,6 +2406,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       const origIds = new Set(originals.map(s => s.id));
       const pool = songs.filter(s => s.isPlayable && !origIds.has(s.id));
       homeRandomPicks = [...pool].sort(() => Math.random() - 0.5).slice(0, 8);
+    }
+
+    if (!homeNewPicks.length) {
+      homeNewPicks = getLatestVideoRandomPicks(4);
     }
 
     const cardHtml = (list, showCollab = true, clickMode = 'song') => list.map(s => {
@@ -2409,6 +2472,16 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             </div>
           </div>
         </div>
+
+        ${homeNewPicks.length ? `
+        <!-- New songs -->
+        <div class="home-section">
+          <div class="home-section-header">
+            <span>new</span>
+            <div class="home-section-line"></div>
+          </div>
+          <div class="home-cards">${cardHtml(homeNewPicks, true, 'song')}</div>
+        </div>` : ''}
 
         ${originals.length ? `
         <!-- Original songs -->
