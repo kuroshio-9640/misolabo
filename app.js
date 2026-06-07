@@ -2480,7 +2480,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             <span>new</span>
             <div class="home-section-line"></div>
           </div>
-          <div class="home-cards">${cardHtml(homeNewPicks, true, 'song')}</div>
+          <div class="home-cards">${cardHtml(homeNewPicks, false, 'recommendation')}</div>
         </div>` : ''}
 
         ${originals.length ? `
