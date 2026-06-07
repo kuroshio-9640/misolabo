@@ -2414,6 +2414,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
     const cardHtml = (list, showCollab = true, clickMode = 'song') => list.map(s => {
       const collabStr = showCollab ? formatCollabsJP(s.collaborators) : '';
+      const overlayCollabStr = formatCollabsJP(s.collaborators);
       const recommendationTypeTag = clickMode === 'recommendation'
         ? [(s.collaborators || '').trim() ? 'COLLAB' : 'SOLO']
         : [];
@@ -2431,6 +2432,14 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           alt="${escapeHtml(s.title)}" loading="lazy"
           onload="validateYouTubeThumbnail(this)"
           onerror="fallbackYouTubeThumbnail(this)">
+        <div class="home-card-overlay">
+          <div class="home-card-overlay-inner">
+            <div class="home-card-overlay-title">${escapeHtml(s.title)}</div>
+            <div class="home-card-overlay-artist">${escapeHtml(s.artist)}</div>
+            ${overlayCollabStr ? `<div class="home-card-overlay-collab">${escapeHtml(overlayCollabStr)}</div>` : ''}
+            ${s.date ? `<div class="home-card-overlay-date">${escapeHtml(s.date)}</div>` : ''}
+          </div>
+        </div>
         <div class="home-card-info">
           <div class="home-card-title">${escapeHtml(s.title)}</div>
           <div class="home-card-artist">${escapeHtml(s.artist)}</div>
