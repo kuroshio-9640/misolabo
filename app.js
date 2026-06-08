@@ -39,6 +39,14 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             ],
           },
           {
+            label: 'Music Video',
+            items: [
+              'MVタグ付きの楽曲をカード形式で一覧表示',
+              '公開日順で閲覧でき、cover / original の切り替え表示に対応',
+              'カードを選択すると Music Video ページ内の並び順で続けて再生可能',
+            ],
+          },
+          {
             label: 'Playlist',
             items: [
               '楽曲一覧、または画面下部プレイヤーの「＋」から再生可能楽曲をプレイリストに追加可能',
@@ -116,7 +124,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   let isShuffle       = false;
   let repeatMode      = 0;
   let selectedCollabs = new Set();
-  let currentView     = 'database'; // 'database' | 'favorites' | 'playlist'
+  let currentView     = 'database'; // 'database' | 'mv-gallery' | 'favorites' | 'playlist'
   let queueSource     = { type: 'database', playlistId: null, songIds: [] };
 
   // Sort modes
@@ -159,11 +167,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function updateFavBadge() {
-    const badge = document.getElementById('navFavCount');
-    if (!badge) return;
-    const n = favorites.size;
-    badge.textContent = n;
-    badge.style.display = n > 0 ? '' : 'none';
+    // Favorites count is intentionally not shown in the sidebar.
   }
 
   // ── YouTube API callback
@@ -438,6 +442,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       songs = cached;
       initializeDefaultQueue();
       if (currentView === 'home') { homeNewPicks = []; homeRandomPicks = []; renderHomePage(); }
+      else if (currentView === 'mv-gallery') renderMvGalleryPage();
       else renderSongs();
       if (collabPopupOpen) renderCollabPopupList();
       return;
@@ -461,6 +466,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         homeNewPicks = [];
         homeRandomPicks = [];
         renderHomePage();
+      } else if (currentView === 'mv-gallery') {
+        renderMvGalleryPage();
       } else {
         renderSongs();
       }
@@ -545,6 +552,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         list.innerHTML =
           `<div style="padding:48px 24px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">No results.</div>`;
       }
+      updateFloatingJumpButtons();
       return;
     }
 
@@ -596,6 +604,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         </div>
       </div>`;
     }).join('');
+    updateFloatingJumpButtons();
   }
 
   function openManualRecord(e, id) {
@@ -680,6 +689,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   window.openManualRecord = openManualRecord;
   window.closeManualRecordDetail = closeManualRecordDetail;
   window.selectManualDetailCollab = selectManualDetailCollab;
+  window.jumpToPlayingSong = jumpToPlayingSong;
+  window.jumpToSongListTop = jumpToSongListTop;
 
   // ── Playback
   function setQueueSource(type, songIds, playlistId = null) {
@@ -688,6 +699,24 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       playlistId,
       songIds: [...new Set((songIds || []).map(Number).filter(Boolean))],
     };
+    updateNavPlaybackSource();
+  }
+
+  function getPlaybackSourceNavLabel() {
+    if (!isPlaying || !currentSong) return '';
+    if (queueSource.type === 'database') return 'Database';
+    if (queueSource.type === 'mv-gallery') return 'Music Video';
+    if (queueSource.type === 'favorites') return 'My Favorites';
+    if (queueSource.type === 'playlist') return 'Playlist';
+    return '';
+  }
+
+  function updateNavPlaybackSource() {
+    const label = getPlaybackSourceNavLabel();
+    document.querySelectorAll('.nav-item').forEach(item => {
+      const text = item.querySelector('span')?.textContent?.trim() || '';
+      item.classList.toggle('source-playing', Boolean(label && text === label));
+    });
   }
 
   function shuffleIds(ids) {
@@ -748,6 +777,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function stopAtQueueEnd() {
     isPlaying = false;
+    updateNavPlaybackSource();
     updatePlayIcon();
     stopProgressUpdate();
     try {
@@ -761,6 +791,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     renderSongs();
     if (currentView === 'playlist' && currentPlaylistId) renderPlaylistPage();
     if (currentView === 'home') renderHomePage();
+    if (currentView === 'mv-gallery') renderMvGalleryPage();
   }
 
   function playSong(id, options = {}) {
@@ -783,9 +814,11 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
     currentSong = song;
     isPlaying = true;
+    updateNavPlaybackSource();
     updatePlayerDisplay(currentSong);
     updatePlayIcon();
     renderSongs();
+    if (currentView === 'mv-gallery') renderMvGalleryPage();
     openYT();
     scrollToSong(id);
   }
@@ -1270,8 +1303,99 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   function scrollToSong(id) {
     setTimeout(() => {
       const row = document.querySelector(`[data-song-id="${id}"]`);
-      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(updateFloatingJumpButtons, 260);
+      }
     }, 80);
+  }
+
+  function getSongListScrollOffset() {
+    const songSection = document.querySelector('.song-section');
+    const content = document.querySelector('.content');
+    return Math.max(
+      window.scrollY || window.pageYOffset || 0,
+      songSection?.scrollTop || 0,
+      content?.scrollTop || 0
+    );
+  }
+
+  function getCurrentSongVisibleRow() {
+    if (!currentSong) return null;
+    if (['database', 'favorites'].includes(currentView)) {
+      return document.querySelector(`.song-row[data-song-id="${currentSong.id}"]`);
+    }
+    if (currentView === 'playlist' && currentPlaylistId) {
+      return document.querySelector(`.pl-detail-row[data-song-id="${currentSong.id}"]`);
+    }
+    return null;
+  }
+
+  function supportsFloatingSongListPills() {
+    return ['database', 'favorites'].includes(currentView) ||
+      (currentView === 'playlist' && Boolean(currentPlaylistId));
+  }
+
+  function getAnyVisibleSongRow() {
+    if (['database', 'favorites'].includes(currentView)) return document.querySelector('.song-row');
+    if (currentView === 'playlist' && currentPlaylistId) return document.querySelector('.pl-detail-row');
+    return null;
+  }
+
+  function isCurrentSongVisible() {
+    if (!currentSong || !supportsFloatingSongListPills()) return true;
+    const row = getCurrentSongVisibleRow();
+    if (!row) return true;
+    const rect = row.getBoundingClientRect();
+    const player = document.querySelector('.player');
+    const playerTop = player ? player.getBoundingClientRect().top : window.innerHeight;
+    const topbar = currentView === 'playlist' ? document.querySelector('.pl-topbar') : document.querySelector('.topbar');
+    const topbarBottom = topbar && getComputedStyle(topbar).display !== 'none'
+      ? topbar.getBoundingClientRect().bottom
+      : 0;
+    return rect.top >= topbarBottom + 8 && rect.bottom <= playerTop - 8;
+  }
+
+  function updateNowPlayingJump() {
+    const btn = document.getElementById('nowPlayingJump');
+    if (!btn) return;
+    const shouldShow = Boolean(
+      currentSong &&
+      isPlaying &&
+      supportsFloatingSongListPills() &&
+      getCurrentSongVisibleRow() &&
+      !isCurrentSongVisible()
+    );
+    btn.classList.toggle('show', shouldShow);
+  }
+
+  function updateBackToTopJump() {
+    const btn = document.getElementById('backToTopJump');
+    if (!btn) return;
+    const shouldShow = Boolean(
+      !isPlaying &&
+      supportsFloatingSongListPills() &&
+      getAnyVisibleSongRow() &&
+      getSongListScrollOffset() > 240
+    );
+    btn.classList.toggle('show', shouldShow);
+  }
+
+  function updateFloatingJumpButtons() {
+    updateNowPlayingJump();
+    updateBackToTopJump();
+  }
+
+  function jumpToPlayingSong() {
+    if (!currentSong) return;
+    scrollToSong(currentSong.id);
+  }
+
+  function jumpToSongListTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelector('.song-section')?.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelector('.content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(updateFloatingJumpButtons, 260);
   }
 
   function setOriginalFilterActive() {
@@ -1292,6 +1416,15 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     setNavActiveByLabel('Database');
     setView('database');
     setOriginalFilterActive();
+    renderSongs();
+    setQueueFromCurrentList({ shuffle: true });
+    setShuffleState(true);
+    playSong(id, { preserveQueue: true });
+  }
+
+  function playHomeNew(id) {
+    setNavActiveByLabel('Database');
+    setView('database');
     renderSongs();
     setQueueFromCurrentList();
     setShuffleState(false);
@@ -1325,6 +1458,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (label === 'Home')              setView('home');
     else if (label === 'My Favorites') setView('favorites');
     else if (label === 'Database')     setView('database');
+    else if (label === 'Music Video')  setView('mv-gallery');
     else if (label === 'Playlist')     setView('playlist');
     else if (label === 'About')        setView('about');
   }
@@ -1351,14 +1485,15 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const topbar       = document.querySelector('.topbar');
     const content      = document.querySelector('.content');
     const playlistPage = document.getElementById('playlistPage');
+    const mvGalleryPage = document.getElementById('mvGalleryPage');
     const homePage     = document.getElementById('homePage');
     const aboutPage    = document.getElementById('aboutPage');
 
     // Deactivate all full-page panels
-    [playlistPage, homePage, aboutPage].forEach(p => p?.classList.remove('active'));
+    [playlistPage, mvGalleryPage, homePage, aboutPage].forEach(p => p?.classList.remove('active'));
 
     // Full-page views (hide topbar + content)
-    if (view === 'playlist' || view === 'home' || view === 'about') {
+    if (view === 'playlist' || view === 'mv-gallery' || view === 'home' || view === 'about') {
       topbar.style.display  = 'none';
       content.style.display = 'none';
       if (view === 'playlist') {
@@ -1370,6 +1505,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         if (activePlaylistExists) playlistSearchQuery = '';
         renderPlaylistPage();
         if (activePlaylistExists && currentSong) scrollToSong(currentSong.id);
+      } else if (view === 'mv-gallery') {
+        currentPlaylistId = null;
+        mvGalleryPage.classList.add('active');
+        renderMvGalleryPage();
       } else if (view === 'home') {
         homePage.classList.add('active');
         homeNewPicks = [];
@@ -1411,6 +1550,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     document.querySelectorAll('.collab-chip').forEach(c => c.classList.remove('active'));
 
     renderSongs();
+    if (view === 'database' && currentSong) scrollToSong(currentSong.id);
+    else updateFloatingJumpButtons();
   }
 
   // ── Sidebar collapse toggle
@@ -1532,13 +1673,17 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.PLAYING) {
       isPlaying = true; updatePlayIcon(); renderSongs();
+      updateNavPlaybackSource();
       if (currentView === 'playlist' && currentPlaylistId) renderPlaylistPage();
       if (currentView === 'home') renderHomePage();
+      if (currentView === 'mv-gallery') renderMvGalleryPage();
       startProgressUpdate();
     } else if (event.data === YT.PlayerState.PAUSED) {
       isPlaying = false; updatePlayIcon(); renderSongs();
+      updateNavPlaybackSource();
       if (currentView === 'playlist' && currentPlaylistId) renderPlaylistPage();
       if (currentView === 'home') renderHomePage();
+      if (currentView === 'mv-gallery') renderMvGalleryPage();
       stopProgressUpdate();
     } else if (event.data === YT.PlayerState.ENDED) {
       stopProgressUpdate(); playNext();
@@ -1893,6 +2038,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const page = document.getElementById('playlistPage');
     if (!page) return;
     currentPlaylistId ? renderPlaylistDetail(page, currentPlaylistId) : renderPlaylistGrid(page);
+    updateFloatingJumpButtons();
   }
 
   function getPlaylistUpdatedAt(pl) {
@@ -2381,51 +2527,28 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       .map(item => item.song);
   }
 
-  function renderHomePage() {
-    const page = document.getElementById('homePage');
-    if (!page) return;
-
-    if (!songs.length) {
-      page.innerHTML = `
-        <div style="flex:1;display:flex;align-items:center;justify-content:center;">
-          <div style="color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">Loading...</div>
-        </div>`;
-      return;
-    }
-
-    // Original songs by 伊波ライ — sorted newest first
-    const originals = songs
-      .filter(s => (s.artist || '').includes('伊波ライ') && s.tags.some(t => t.toLowerCase() === 'original') && s.isPlayable)
-      .sort((a, b) => {
-        if (!a.date) return 1; if (!b.date) return -1;
-        return a.date > b.date ? -1 : a.date < b.date ? 1 : 0;
-      });
-
-    // Random picks: 8 playable songs (excluding originals)
-    if (!homeRandomPicks.length) {
-      const origIds = new Set(originals.map(s => s.id));
-      const pool = songs.filter(s => s.isPlayable && !origIds.has(s.id));
-      homeRandomPicks = [...pool].sort(() => Math.random() - 0.5).slice(0, 8);
-    }
-
-    if (!homeNewPicks.length) {
-      homeNewPicks = getLatestVideoRandomPicks(4);
-    }
-
-    const cardHtml = (list, showCollab = true, clickMode = 'song') => list.map(s => {
+  function renderHomeCards(list, showCollab = true, clickMode = 'song', options = {}) {
+    const showTags = options.showTags !== false;
+    const showPlaying = options.showPlaying === true;
+    return list.map(s => {
       const collabStr = showCollab ? formatCollabsJP(s.collaborators) : '';
       const overlayCollabStr = formatCollabsJP(s.collaborators);
-      const recommendationTypeTag = clickMode === 'recommendation'
+      const recommendationTypeTag = ['recommendation', 'home-new'].includes(clickMode)
         ? [(s.collaborators || '').trim() ? 'COLLAB' : 'SOLO']
         : [];
       const cardTags = [...new Set([...recommendationTypeTag, ...(s.tags || [])])];
       const clickHandler = clickMode === 'original'
         ? `playHomeOriginal(${s.id})`
+        : clickMode === 'home-new'
+          ? `playHomeNew(${s.id})`
         : clickMode === 'recommendation'
           ? `playHomeRecommendation(${s.id})`
-          : `playSong(${s.id}, { source: 'current-list' })`;
+          : clickMode === 'mv-gallery'
+            ? `playMvGallerySong(${s.id})`
+            : `playSong(${s.id}, { source: 'current-list' })`;
+      const isPlayingCard = showPlaying && currentSong && s.id === currentSong.id;
       return `
-      <div class="home-card ${currentSong && s.id === currentSong.id ? 'playing' : ''}" onclick="${clickHandler}">
+      <div class="home-card ${isPlayingCard ? 'playing' : ''}" onclick="${clickHandler}">
         <img class="home-card-thumb"
           src="${getYouTubeThumbnail(s.videoId)}"
           data-video-id="${escapeHtml(s.videoId)}"
@@ -2444,10 +2567,62 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           <div class="home-card-title">${escapeHtml(s.title)}</div>
           <div class="home-card-artist">${escapeHtml(s.artist)}</div>
           ${collabStr ? `<div class="home-card-collab">w/ ${escapeHtml(collabStr)}</div>` : ''}
-          ${cardTags.length ? `<div class="home-card-tags">${cardTags.map(t=>`<span class="song-tag ${t.toLowerCase()}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          ${showTags && cardTags.length ? `<div class="home-card-tags">${cardTags.map(t=>`<span class="song-tag ${t.toLowerCase()}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         </div>
       </div>`;
     }).join('');
+  }
+
+  function getMvGallerySongs() {
+    return songs
+      .filter(s => {
+        const tags = (s.tags || []).map(t => String(t).toLowerCase());
+        return s.isPlayable && s.videoId && tags.includes('mv');
+      })
+      .sort((a, b) => {
+        if (!a.date) return 1; if (!b.date) return -1;
+        return a.date > b.date ? -1 : a.date < b.date ? 1 : 0;
+      });
+  }
+
+  function playMvGallerySong(id) {
+    const mvSongs = getMvGallerySongs();
+    setQueueSource('mv-gallery', mvSongs.map(s => s.id));
+    setShuffleState(false);
+    playSong(id, { preserveQueue: true });
+  }
+
+  function renderHomePage() {
+    const page = document.getElementById('homePage');
+    if (!page) return;
+
+    if (!songs.length) {
+      page.innerHTML = `
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+          <div style="color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">Loading...</div>
+        </div>`;
+      return;
+    }
+
+    // Original songs — sorted newest first
+    const originals = songs
+      .filter(s => s.tags.some(t => t.toLowerCase() === 'original') && s.isPlayable)
+      .sort((a, b) => {
+        if (!a.date) return 1; if (!b.date) return -1;
+        return a.date > b.date ? -1 : a.date < b.date ? 1 : 0;
+      })
+      .slice(0, 4);
+
+    // Random picks: 8 playable songs (excluding originals)
+    if (!homeRandomPicks.length) {
+      const origIds = new Set(originals.map(s => s.id));
+      const pool = songs.filter(s => s.isPlayable && !origIds.has(s.id));
+      homeRandomPicks = [...pool].sort(() => Math.random() - 0.5).slice(0, 8);
+    }
+
+    if (!homeNewPicks.length) {
+      homeNewPicks = getLatestVideoRandomPicks(4);
+    }
 
     page.innerHTML = `
       <div class="home-content">
@@ -2489,7 +2664,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             <span>new</span>
             <div class="home-section-line"></div>
           </div>
-          <div class="home-cards">${cardHtml(homeNewPicks, false, 'recommendation')}</div>
+          <div class="home-cards">${renderHomeCards(homeNewPicks, false, 'home-new')}</div>
         </div>` : ''}
 
         ${originals.length ? `
@@ -2499,7 +2674,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             <span>Original Songs</span>
             <div class="home-section-line"></div>
           </div>
-          <div class="home-cards">${cardHtml(originals, true, 'original')}</div>
+          <div class="home-cards">${renderHomeCards(originals, false, 'original')}</div>
         </div>` : ''}
 
         <!-- Random recommendations -->
@@ -2509,9 +2684,42 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             <span>Pick Up</span>
             <div class="home-section-line"></div>
           </div>
-          <div class="home-cards">${cardHtml(homeRandomPicks, false, 'recommendation')}</div>
+          <div class="home-cards">${renderHomeCards(homeRandomPicks, false, 'recommendation')}</div>
         </div>` : ''}
 
+      </div>`;
+  }
+
+  function renderMvGalleryPage() {
+    const page = document.getElementById('mvGalleryPage');
+    if (!page) return;
+
+    if (!songs.length) {
+      page.innerHTML = `
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+          <div style="color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">Loading...</div>
+        </div>`;
+      return;
+    }
+
+    const mvSongs = getMvGallerySongs();
+    page.innerHTML = `
+      <div class="home-content">
+        <div class="home-section">
+          <div class="home-section-header">
+            <span>Music Video</span>
+            <div class="home-section-line"></div>
+          </div>
+          ${mvSongs.length
+            ? `<div class="home-cards">${renderHomeCards(mvSongs, false, 'mv-gallery', {
+                showTags: false,
+                showPlaying: queueSource.type === 'mv-gallery',
+              })}</div>`
+            : `<div class="pl-empty" style="padding:64px 24px;">
+                <div class="pl-empty-title">No Music Videos</div>
+                <div class="pl-empty-sub">Songs tagged with MV will appear here.</div>
+              </div>`}
+        </div>
       </div>`;
   }
 
@@ -2620,6 +2828,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   updateSortPanel();
   setView('home');   // start on Home page
   loadSongs();       // loads songs async; renderHomePage is called again once data arrives
+
+  window.addEventListener('scroll', updateFloatingJumpButtons, { passive: true });
+  document.querySelector('.song-section')?.addEventListener('scroll', updateFloatingJumpButtons, { passive: true });
+  document.querySelector('.content')?.addEventListener('scroll', updateFloatingJumpButtons, { passive: true });
 
   // Close add-to-playlist modal when clicking outside
   document.getElementById('addToPlaylistOverlay').addEventListener('click', function(e) {

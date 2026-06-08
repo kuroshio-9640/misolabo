@@ -18,7 +18,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=53-profile-avatar-contain-1">
+<link rel="stylesheet" href="styles.css?v=54-playback-source-pills-1">
 </head>
 <body>
 
@@ -55,9 +55,12 @@
       <span>Database</span>
     </button>
     <button class="nav-item" type="button" onclick="setNav(this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><polygon points="10 9 16 12 10 15 10 9"/></svg>
+      <span>Music Video</span>
+    </button>
+    <button class="nav-item" type="button" onclick="setNav(this)">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       <span>My Favorites</span>
-      <span class="nav-fav-count" id="navFavCount" style="display:none;"></span>
     </button>
     <button class="nav-item" type="button" onclick="setNav(this)">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -185,8 +188,26 @@
       <div class="song-list" id="songList"></div>
     </div>
 
+    <button class="now-playing-jump" id="nowPlayingJump" type="button" onclick="jumpToPlayingSong()">
+      <svg class="now-playing-jump-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 19V5"/>
+        <path d="M5 12l7-7 7 7"/>
+      </svg>
+      <span>Back to Now Playing</span>
+    </button>
+    <button class="back-to-top-jump" id="backToTopJump" type="button" onclick="jumpToSongListTop()">
+      <svg class="now-playing-jump-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 19V5"/>
+        <path d="M5 12l7-7 7 7"/>
+      </svg>
+      <span>Back to Top</span>
+    </button>
+
     <!-- Playlist Page (renders via JS) -->
     <div class="playlist-page" id="playlistPage"></div>
+
+    <!-- Music Video Page (renders via JS) -->
+    <div class="mv-gallery-page" id="mvGalleryPage"></div>
 
     <!-- Home Page (renders via JS) -->
     <div class="home-page" id="homePage"></div>
@@ -365,6 +386,6 @@
 <!-- ═══ SCRIPTS ═══ -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="defaultPlaylists.js?v=52-default-playlists-3"></script>
-<script src="app.js?v=53-manual-source-link-1"></script>
+<script src="app.js?v=54-playback-source-pills-1"></script>
 </body>
 </html>
