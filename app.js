@@ -420,6 +420,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     document.getElementById('playerArtist').textContent = song.artist;
     updatePlayerThumb(song);
     updatePlayerFav();
+    updateNowPlayingKicker();
     updateProgressUi(0, getTrackBounds(song).total);
   }
 
@@ -700,6 +701,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       songIds: [...new Set((songIds || []).map(Number).filter(Boolean))],
     };
     updateNavPlaybackSource();
+    updateNowPlayingKicker();
   }
 
   function getPlaybackSourceNavLabel() {
@@ -709,6 +711,24 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (queueSource.type === 'favorites') return 'My Favorites';
     if (queueSource.type === 'playlist') return 'Playlist';
     return '';
+  }
+
+  function getNowPlayingSourceLabel() {
+    if (!currentSong) return '';
+    if (queueSource.type === 'database') return 'DATABASE';
+    if (queueSource.type === 'mv-gallery') return 'MUSIC VIDEO';
+    if (queueSource.type === 'favorites') return 'MY FAVORITES';
+    if (queueSource.type === 'playlist') {
+      return findPlaylistById(queueSource.playlistId)?.name || 'PLAYLIST';
+    }
+    return '';
+  }
+
+  function updateNowPlayingKicker() {
+    const sourceEl = document.getElementById('ytKickerSource');
+    if (!sourceEl) return;
+    const label = getNowPlayingSourceLabel();
+    sourceEl.textContent = label ? ` - ${label}` : '';
   }
 
   function updateNavPlaybackSource() {
@@ -815,6 +835,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     currentSong = song;
     isPlaying = true;
     updateNavPlaybackSource();
+    updateNowPlayingKicker();
     updatePlayerDisplay(currentSong);
     updatePlayIcon();
     renderSongs();
@@ -1302,12 +1323,25 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function scrollToSong(id) {
     setTimeout(() => {
-      const row = document.querySelector(`[data-song-id="${id}"]`);
+      const row = getSongRowForCurrentView(id) || document.querySelector(`[data-song-id="${id}"]`);
       if (row) {
         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTimeout(updateFloatingJumpButtons, 260);
       }
     }, 80);
+  }
+
+  function getSongRowForCurrentView(id) {
+    if (['database', 'favorites'].includes(currentView)) {
+      return document.querySelector(`.content .song-row[data-song-id="${id}"]`);
+    }
+    if (currentView === 'playlist' && currentPlaylistId) {
+      return document.querySelector(`#playlistPage .pl-detail-row[data-song-id="${id}"]`);
+    }
+    if (currentView === 'mv-gallery') {
+      return document.querySelector(`#mvGalleryPage [data-song-id="${id}"]`);
+    }
+    return null;
   }
 
   function getSongListScrollOffset() {
@@ -1322,13 +1356,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function getCurrentSongVisibleRow() {
     if (!currentSong) return null;
-    if (['database', 'favorites'].includes(currentView)) {
-      return document.querySelector(`.song-row[data-song-id="${currentSong.id}"]`);
-    }
-    if (currentView === 'playlist' && currentPlaylistId) {
-      return document.querySelector(`.pl-detail-row[data-song-id="${currentSong.id}"]`);
-    }
-    return null;
+    return getSongRowForCurrentView(currentSong.id);
   }
 
   function supportsFloatingSongListPills() {
@@ -1447,14 +1475,15 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   // ── Nav
   function setNav(el) {
-    document.querySelectorAll('.nav-item').forEach(n => {
-      n.classList.remove('active');
-      n.removeAttribute('aria-current');
-    });
-    el.classList.add('active');
-    el.setAttribute('aria-current', 'page');
-    closeMobileNav(); // close sidebar overlay on mobile after nav tap
     const label = el.querySelector('span')?.textContent?.trim() || '';
+    document.querySelectorAll('.nav-item').forEach(n => {
+      const text = n.querySelector('span')?.textContent?.trim() || '';
+      const isActive = text === label;
+      n.classList.toggle('active', isActive);
+      if (isActive) n.setAttribute('aria-current', 'page');
+      else n.removeAttribute('aria-current');
+    });
+    closeMobileNav(); // close sidebar overlay on mobile after nav tap
     if (label === 'Home')              setView('home');
     else if (label === 'My Favorites') setView('favorites');
     else if (label === 'Database')     setView('database');
