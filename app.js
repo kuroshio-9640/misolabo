@@ -275,7 +275,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   // ── Song data cache (localStorage)
-  const LS_SONGS_CACHE_KEY = 'inami_songs_cache_v3_manual_records';
+  const LS_SONGS_CACHE_KEY = 'inami_songs_cache_v4_stable_track_ids';
   const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
   function getSongsFromCache() {
@@ -300,6 +300,29 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       .filter(Boolean);
   }
 
+  function getTrackStableId(track, index) {
+    return String(
+      track.trackID ||
+      track.trackId ||
+      track.songID ||
+      track.songId ||
+      `tr${String(index + 1).padStart(5, '0')}`
+    );
+  }
+
+  function getManualRecordStableId(record, index) {
+    return String(
+      record.recordID ||
+      record.recordId ||
+      record.trackID ||
+      record.trackId ||
+      record.manualId ||
+      record.manualID ||
+      record.id ||
+      `mn${String(index + 1).padStart(5, '0')}`
+    );
+  }
+
   function normalizeSongsFromApi(data) {
     if (Array.isArray(data.songs)) return data.songs;
 
@@ -317,7 +340,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         const tags = splitListValue(track.tags);
 
         return {
-          id: index + 1,
+          id: getTrackStableId(track, index),
           recordKind: 'track',
           videoId: track.videoId || '',
           videoTitle: video.title || track.videoTitle || '',
@@ -343,7 +366,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         const sourceChips = [sourceType].filter(Boolean);
 
         return {
-          id: 100000 + index + 1,
+          id: getManualRecordStableId(record, index),
           manualId: record.manualId || record.manualID || record.id || '',
           recordKind: 'manual',
           videoId: '',
@@ -561,18 +584,19 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       const collabStr = formatCollabs(s.collaborators);
       const isUnplayable = !s.isPlayable;
       const isManualRecord = s.recordKind === 'manual';
+      const songIdArg = jsString(s.id);
       const rowAction = isManualRecord
-        ? `onclick="openManualRecord(event, ${s.id})"`
+        ? `onclick="openManualRecord(event, ${songIdArg})"`
         : isUnplayable
           ? ''
-        : `onclick="playSong(${s.id}, { source: 'current-list' })"`;
+        : `onclick="playSong(${songIdArg}, { source: 'current-list' })"`;
       const recordMeta = [
         ...(s.tags || []).map(t => `<span class="song-tag ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`),
         ...(s.sourceChips || []).map(t => `<span class="song-tag record-chip">${escapeHtml(t)}</span>`),
       ].join('');
       return `
       <div class="song-row ${currentSong && s.id === currentSong.id ? 'playing' : ''} ${isUnplayable ? 'unplayable' : ''} ${isManualRecord ? 'manual-record has-record-detail' : ''}"
-           data-song-id="${s.id}"
+           data-song-id="${escapeHtml(s.id)}"
            ${rowAction}>
         <div class="song-index">
           <span class="song-num">${i + 1}</span>
@@ -593,12 +617,12 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         <div class="song-meta">
           <div class="song-tags">${recordMeta}</div>
           <div class="song-actions ${isManualRecord ? 'placeholder' : ''}" aria-hidden="${isManualRecord}">
-            ${isManualRecord ? '' : `<button class="song-fav ${favorites.has(s.id) ? 'active' : ''}" onclick="toggleFav(event, ${s.id})" aria-label="Favorite ${escapeHtml(s.title)}" aria-pressed="${favorites.has(s.id)}">
+            ${isManualRecord ? '' : `<button class="song-fav ${favorites.has(s.id) ? 'active' : ''}" onclick="toggleFav(event, ${songIdArg})" aria-label="Favorite ${escapeHtml(s.title)}" aria-pressed="${favorites.has(s.id)}">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="${favorites.has(s.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
             </button>
-            <button class="song-playlist-add" onclick="openAddToPlaylist(event, ${s.id})" aria-label="Add ${escapeHtml(s.title)} to playlist">
+            <button class="song-playlist-add" onclick="openAddToPlaylist(event, ${songIdArg})" aria-label="Add ${escapeHtml(s.title)} to playlist">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>`}
           </div>
@@ -610,7 +634,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function openManualRecord(e, id) {
     e?.stopPropagation();
-    const record = songs.find(song => song.id === Number(id));
+    const record = songs.find(song => song.id === String(id));
     if (!record || record.recordKind !== 'manual') return;
 
     renderManualRecordDetail(record);
@@ -698,7 +722,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     queueSource = {
       type,
       playlistId,
-      songIds: [...new Set((songIds || []).map(Number).filter(Boolean))],
+      songIds: [...new Set((songIds || []).map(id => String(id)).filter(Boolean))],
     };
     updateNavPlaybackSource();
     updateNowPlayingKicker();
@@ -750,7 +774,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function getSongsByIds(ids) {
     return (ids || [])
-      .map(id => songs.find(s => s.id === id))
+      .map(id => songs.find(s => s.id === String(id)))
       .filter(Boolean);
   }
 
@@ -815,6 +839,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function playSong(id, options = {}) {
+    id = String(id);
     const song = songs.find(s => s.id === id);
     if (!song || !song.isPlayable) return;
 
@@ -946,6 +971,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function toggleFav(e, id) {
     e.stopPropagation();
+    id = String(id);
     favorites.has(id) ? favorites.delete(id) : favorites.set(id, Date.now());
     saveFavoritesToStorage();
     renderSongs();
@@ -1255,7 +1281,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   function compareSongsByArtist(a, b) {
     return compareNullableText(a.artist, b.artist) ||
       compareNullableText(a.title, b.title) ||
-      Number(a.id || 0) - Number(b.id || 0);
+      SORT_COLLATOR.compare(String(a.id || ''), String(b.id || ''));
   }
 
   // ── Filters
@@ -2000,6 +2026,14 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     return 'pl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   }
 
+  function jsString(value) {
+    return `'${String(value)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n')}'`;
+  }
+
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -2028,6 +2062,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function removeSongFromPlaylist(playlistId, songId, e) {
     e.stopPropagation();
+    songId = String(songId);
     if (findPlaylistById(playlistId)?.isDefault) return;
     const pl = playlists.find(p => p.id === playlistId);
     if (!pl) return;
@@ -2295,6 +2330,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const detailSongs = getVisiblePlaylistSongs(id);
 
     const detailSongIds = detailSongs.map(s => s.id);
+    const detailSongIdsArg = `[${detailSongIds.map(jsString).join(',')}]`;
 
     page.innerHTML = `
       <div class="pl-topbar">
@@ -2361,10 +2397,12 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                 </div>`}
             </div>`
           : `<div class="pl-detail-list" id="plDetailList">
-              ${detailSongs.map((s, i) => `
+              ${detailSongs.map((s, i) => {
+                const songIdArg = jsString(s.id);
+                return `
                 <div class="pl-detail-row ${currentSong && s.id === currentSong.id ? 'playing' : ''}"
-                  data-song-id="${s.id}"
-                  onclick="playSong(${s.id}, { type: 'playlist', playlistId: '${id}', songIds: ${JSON.stringify(detailSongIds)} })">
+                  data-song-id="${escapeHtml(s.id)}"
+                  onclick="playSong(${songIdArg}, { type: 'playlist', playlistId: '${id}', songIds: ${detailSongIdsArg} })">
                   <div class="song-index">
                     <span class="song-num">${i + 1}</span>
                     <svg class="song-play-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -2380,13 +2418,14 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                   </div>
                   <div class="song-meta">
                     ${s.tags.map(t => `<span class="song-tag ${t.toLowerCase()}">${escapeHtml(t)}</span>`).join('')}
-                    ${pl.isDefault ? '' : `<button class="pl-row-del" onclick="removeSongFromPlaylist('${id}', ${s.id}, event)" title="削除">
+                    ${pl.isDefault ? '' : `<button class="pl-row-del" onclick="removeSongFromPlaylist('${id}', ${songIdArg}, event)" title="削除">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                       </svg>
                     </button>`}
                   </div>
-                </div>`).join('')}
+                </div>`;
+              }).join('')}
             </div>`}
       </div>`;
   }
@@ -2408,7 +2447,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   function openAddToPlaylist(e, songId = null) {
     e?.stopPropagation();
     const targetSong = songId
-      ? songs.find(song => song.id === Number(songId))
+      ? songs.find(song => song.id === String(songId))
       : currentSong;
     if (!targetSong) return;
     modalTargetSongId = targetSong.id;
@@ -2562,19 +2601,20 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     return list.map(s => {
       const collabStr = showCollab ? formatCollabsJP(s.collaborators) : '';
       const overlayCollabStr = formatCollabsJP(s.collaborators);
+      const songIdArg = jsString(s.id);
       const recommendationTypeTag = ['recommendation', 'home-new'].includes(clickMode)
         ? [(s.collaborators || '').trim() ? 'COLLAB' : 'SOLO']
         : [];
       const cardTags = [...new Set([...recommendationTypeTag, ...(s.tags || [])])];
       const clickHandler = clickMode === 'original'
-        ? `playHomeOriginal(${s.id})`
+        ? `playHomeOriginal(${songIdArg})`
         : clickMode === 'home-new'
-          ? `playHomeNew(${s.id})`
+          ? `playHomeNew(${songIdArg})`
         : clickMode === 'recommendation'
-          ? `playHomeRecommendation(${s.id})`
+          ? `playHomeRecommendation(${songIdArg})`
           : clickMode === 'mv-gallery'
-            ? `playMvGallerySong(${s.id})`
-            : `playSong(${s.id}, { source: 'current-list' })`;
+            ? `playMvGallerySong(${songIdArg})`
+            : `playSong(${songIdArg}, { source: 'current-list' })`;
       const isPlayingCard = showPlaying && currentSong && s.id === currentSong.id;
       return `
       <div class="home-card ${isPlayingCard ? 'playing' : ''}" onclick="${clickHandler}">
