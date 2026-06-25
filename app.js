@@ -395,8 +395,22 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function formatApiDate(raw) {
     if (!raw) return null;
-    const match = String(raw).trim().match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-    if (!match) return String(raw).trim();
+    const value = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).formatToParts(parsed);
+        const get = type => parts.find(part => part.type === type)?.value || '';
+        return `${get('year')}/${get('month')}/${get('day')}`;
+      }
+    }
+    const match = value.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if (!match) return value;
     return `${match[1]}/${String(match[2]).padStart(2, '0')}/${String(match[3]).padStart(2, '0')}`;
   }
 
@@ -647,6 +661,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     archiveVideoId = null;
     const archiveSlot = document.getElementById('archiveFilterSlot');
     if (archiveSlot) archiveSlot.innerHTML = '';
+    setNavActiveByLabel('Database');
     renderSongs();
   }
 
@@ -749,11 +764,12 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   window.jumpToSongListTop = jumpToSongListTop;
 
   // ── Playback
-  function setQueueSource(type, songIds, playlistId = null) {
+  function setQueueSource(type, songIds, playlistId = null, meta = {}) {
     queueSource = {
       type,
       playlistId,
       songIds: [...new Set((songIds || []).map(id => String(id)).filter(Boolean))],
+      archiveVideoId: meta.archiveVideoId ? String(meta.archiveVideoId) : null,
     };
     updateNavPlaybackSource();
     updateNowPlayingKicker();
@@ -823,7 +839,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       : currentView === 'playlist' && currentPlaylistId
         ? 'playlist'
         : currentView;
-    setQueueSource(type, ids, currentPlaylistId);
+    setQueueSource(type, ids, currentPlaylistId, { archiveVideoId });
   }
 
   function getPlaybackQueue() {
@@ -1544,8 +1560,29 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   // ── Nav
+  function getActiveArchiveQueueVideoId() {
+    if (queueSource.type !== 'archive') return '';
+    if (queueSource.archiveVideoId) return queueSource.archiveVideoId;
+    if (archiveVideoId) return archiveVideoId;
+    const queueSongs = getPlaybackQueue();
+    const firstVideoId = queueSongs[0]?.videoId || '';
+    return firstVideoId && queueSongs.every(song => song.videoId === firstVideoId) ? firstVideoId : '';
+  }
+
+  function restoreArchiveFilterPlayback() {
+    const targetVideoId = getActiveArchiveQueueVideoId();
+    if (!targetVideoId) return false;
+    archiveVideoId = targetVideoId;
+    setNavActiveByLabel('Archive');
+    setView('database');
+    if (currentSong) scrollToSong(currentSong.id);
+    return true;
+  }
+
   function setNav(el) {
     const label = el.querySelector('span')?.textContent?.trim() || '';
+    if (label === 'Archive' && restoreArchiveFilterPlayback()) return;
+
     document.querySelectorAll('.nav-item').forEach(n => {
       const text = n.querySelector('span')?.textContent?.trim() || '';
       const isActive = text === label;
@@ -2945,7 +2982,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   function openArchiveVideo(videoId) {
     archiveVideoId = String(videoId);
     searchQuery = '';
-    setNavActiveByLabel('Database');
+    setNavActiveByLabel('Archive');
     setView('database');
   }
 
