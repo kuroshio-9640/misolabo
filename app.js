@@ -32,10 +32,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             ],
           },
           {
-            label: 'My Favorites',
+            label: 'Archive',
             items: [
-              '気になった再生可能楽曲を、お気に入りとして保存可能',
-              '楽曲一覧、またはプレイヤー右側の「☆」アイコンから登録',
+              '歌枠・動画単位のカード一覧から、該当回の収録曲だけを絞り込み可能',
+              'カードには動画タイトルと公開日を表示',
             ],
           },
           {
@@ -50,6 +50,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             label: 'Playlist',
             items: [
               '楽曲一覧、または画面下部プレイヤーの「＋」から再生可能楽曲をプレイリストに追加可能',
+              'My Favorites は固定プレイリストとして先頭に表示',
               'あらかじめ用意された PICK UP プレイリストと、ユーザー作成プレイリストに対応',
             ],
           },
@@ -124,12 +125,13 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   let isShuffle       = false;
   let repeatMode      = 0;
   let selectedCollabs = new Set();
-  let currentView     = 'database'; // 'database' | 'mv-gallery' | 'favorites' | 'playlist'
+  let currentView     = 'database'; // 'database' | 'mv-gallery' | 'archive' | 'playlist' | 'home' | 'about'
   let queueSource     = { type: 'database', playlistId: null, songIds: [] };
+  let archiveVideoId  = null;
+  let archiveYearFilter = '';
 
   // Sort modes
   let dbSortMode      = 'date-desc';   // database default: newest upload first
-  let favSortMode     = 'added-asc';   // favorites default: oldest added last (newest at bottom)
 
   // Collapsible panel states
   let filterPanelOpen = false;
@@ -467,6 +469,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       initializeDefaultQueue();
       if (currentView === 'home') { homeNewPicks = []; homeRandomPicks = []; renderHomePage(); }
       else if (currentView === 'mv-gallery') renderMvGalleryPage();
+      else if (currentView === 'archive') renderArchivePage();
       else renderSongs();
       if (collabPopupOpen) renderCollabPopupList();
       return;
@@ -492,6 +495,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         renderHomePage();
       } else if (currentView === 'mv-gallery') {
         renderMvGalleryPage();
+      } else if (currentView === 'archive') {
+        renderArchivePage();
       } else {
         renderSongs();
       }
@@ -504,8 +509,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   // ── Filter + Sort logic
   function getFilteredSongs() {
-    const base = currentView === 'favorites'
-      ? songs.filter(s => favorites.has(s.id))
+    const base = archiveVideoId
+      ? songs.filter(s => s.videoId === archiveVideoId)
       : songs;
 
     const filtered = base.filter(s => {
@@ -547,35 +552,41 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     });
 
     // Apply sort
-    const mode = currentView === 'favorites' ? favSortMode : dbSortMode;
-    return sortSongs(filtered, mode);
+    return sortSongs(filtered, dbSortMode);
   }
 
   // ── Render song list
   function renderSongs() {
     const filtered = getFilteredSongs();
     const list = document.getElementById('songList');
+    const archiveSlot = document.getElementById('archiveFilterSlot');
     document.getElementById('songCount').textContent = `${filtered.length} songs`;
     const actionBar = document.getElementById('songActionBar');
     if (actionBar) actionBar.style.display =
-      (currentView === 'database' || currentView === 'favorites') && filtered.some(s => s.isPlayable) ? 'flex' : 'none';
+      currentView === 'database' && filtered.some(s => s.isPlayable) ? 'flex' : 'none';
+
+    const archiveGroup = archiveVideoId ? getArchiveGroups().find(group => group.videoId === archiveVideoId) : null;
+    if (archiveSlot) archiveSlot.innerHTML = archiveGroup ? `
+      <div class="archive-filter-banner">
+        <div class="archive-filter-text">
+          <span class="archive-filter-kicker">Archive Filter</span>
+          <span class="archive-filter-title">${escapeHtml(archiveGroup.title)}</span>
+        </div>
+        <div class="archive-filter-actions">
+          <button class="archive-filter-clear" type="button" onclick="backToArchiveCard()">
+            <svg class="archive-filter-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
+          </button>
+          <button class="archive-filter-clear" type="button" onclick="clearArchiveFilter()">
+            <svg class="archive-filter-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>Clear</span>
+          </button>
+        </div>
+      </div>` : '';
 
     if (!filtered.length) {
-      if (currentView === 'favorites') {
-        list.innerHTML = `
-          <div class="pl-empty" style="padding:64px 24px;">
-            <div class="pl-empty-icon">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
-            </div>
-            <div class="pl-empty-title">お気に入りがありません</div>
-            <div class="pl-empty-sub">データベースの ★ ボタンから<br>曲を追加してください。</div>
-          </div>`;
-      } else {
-        list.innerHTML =
-          `<div style="padding:48px 24px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">No results.</div>`;
-      }
+      list.innerHTML =
+        `<div style="padding:48px 24px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">No results.</div>`;
       updateFloatingJumpButtons();
       return;
     }
@@ -630,6 +641,26 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       </div>`;
     }).join('');
     updateFloatingJumpButtons();
+  }
+
+  function clearArchiveFilter() {
+    archiveVideoId = null;
+    const archiveSlot = document.getElementById('archiveFilterSlot');
+    if (archiveSlot) archiveSlot.innerHTML = '';
+    renderSongs();
+  }
+
+  function backToArchiveCard() {
+    const targetVideoId = archiveVideoId;
+    setNavActiveByLabel('Archive');
+    setView('archive');
+    if (!targetVideoId) return;
+    setTimeout(() => {
+      const card = [...document.querySelectorAll('.archive-card')]
+        .find(el => el.dataset.videoId === targetVideoId);
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card?.focus?.({ preventScroll: true });
+    }, 120);
   }
 
   function openManualRecord(e, id) {
@@ -732,7 +763,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (!isPlaying || !currentSong) return '';
     if (queueSource.type === 'database') return 'Database';
     if (queueSource.type === 'mv-gallery') return 'Music Video';
-    if (queueSource.type === 'favorites') return 'My Favorites';
+    if (queueSource.type === 'archive') return 'Archive';
     if (queueSource.type === 'playlist') return 'Playlist';
     return '';
   }
@@ -741,7 +772,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (!currentSong) return '';
     if (queueSource.type === 'database') return 'DATABASE';
     if (queueSource.type === 'mv-gallery') return 'MUSIC VIDEO';
-    if (queueSource.type === 'favorites') return 'MY FAVORITES';
+    if (queueSource.type === 'archive') return 'ARCHIVE';
     if (queueSource.type === 'playlist') {
       return findPlaylistById(queueSource.playlistId)?.name || 'PLAYLIST';
     }
@@ -787,7 +818,11 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function setQueueFromCurrentList(options = {}) {
     const ids = options.shuffle ? shuffleIds(getCurrentListSongIds()) : getCurrentListSongIds();
-    const type = currentView === 'playlist' && currentPlaylistId ? 'playlist' : currentView;
+    const type = archiveVideoId
+      ? 'archive'
+      : currentView === 'playlist' && currentPlaylistId
+        ? 'playlist'
+        : currentView;
     setQueueSource(type, ids, currentPlaylistId);
   }
 
@@ -899,7 +934,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (!ytPlayer || typeof ytPlayer.playVideo !== 'function') {
       const currentIds = getCurrentListSongIds();
       const currentInList = currentSong && currentIds.includes(currentSong.id);
-      if (currentView === 'favorites' || (currentView === 'playlist' && currentPlaylistId)) {
+      if (currentView === 'playlist' && currentPlaylistId) {
         setQueueFromCurrentList();
         const target = currentInList ? currentSong : getPlaybackQueue()[0];
         if (target) playSong(target.id, { preserveQueue: true });
@@ -967,6 +1002,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     saveFavoritesToStorage();
     updatePlayerFav();
     renderSongs();
+    if (currentView === 'playlist') renderPlaylistPage();
   }
 
   function toggleFav(e, id) {
@@ -976,6 +1012,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     saveFavoritesToStorage();
     renderSongs();
     updatePlayerFav();
+    if (currentView === 'playlist') renderPlaylistPage();
   }
 
   // ── Filter / Sort panel toggles
@@ -1213,36 +1250,17 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     renderSongs();
   }
 
-  function setFavSort(mode) {
-    favSortMode = mode;
-    updateSortPanel();
-    renderSongs();
-  }
-
   function updateSortPanel() {
     const inner = document.getElementById('sortPanelInner');
     if (!inner) return;
-    if (currentView === 'favorites') {
-      inner.innerHTML = [
-        ['date-desc', '公開日(新しい順)'],
-        ['date-asc',  '公開日(古い順)'],
-        ['artist-asc', 'アーティスト名(A→Z)'],
-        ['artist-desc','アーティスト名(Z→A)'],
-        ['added-desc','追加日(新しい順)'],
-        ['added-asc', '追加日(古い順)'],
-      ].map(([mode, label]) =>
-        `<button class="pl-sort-btn ${favSortMode === mode ? 'active' : ''}" onclick="setFavSort('${mode}')" aria-pressed="${favSortMode === mode}">${label}</button>`
-      ).join('');
-    } else {
-      inner.innerHTML = [
-        ['date-desc', '公開日(新しい順)'],
-        ['date-asc',  '公開日(古い順)'],
-        ['artist-asc', 'アーティスト名(A→Z)'],
-        ['artist-desc','アーティスト名(Z→A)'],
-      ].map(([mode, label]) =>
-        `<button class="pl-sort-btn ${dbSortMode === mode ? 'active' : ''}" onclick="setDbSort('${mode}')" aria-pressed="${dbSortMode === mode}">${label}</button>`
-      ).join('');
-    }
+    inner.innerHTML = [
+      ['date-desc', '公開日(新しい順)'],
+      ['date-asc',  '公開日(古い順)'],
+      ['artist-asc', 'アーティスト名(A→Z)'],
+      ['artist-desc','アーティスト名(Z→A)'],
+    ].map(([mode, label]) =>
+      `<button class="pl-sort-btn ${dbSortMode === mode ? 'active' : ''}" onclick="setDbSort('${mode}')" aria-pressed="${dbSortMode === mode}">${label}</button>`
+    ).join('');
   }
 
   function sortSongs(arr, mode) {
@@ -1358,7 +1376,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function getSongRowForCurrentView(id) {
-    if (['database', 'favorites'].includes(currentView)) {
+    if (currentView === 'database') {
       return document.querySelector(`.content .song-row[data-song-id="${id}"]`);
     }
     if (currentView === 'playlist' && currentPlaylistId) {
@@ -1386,12 +1404,12 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function supportsFloatingSongListPills() {
-    return ['database', 'favorites'].includes(currentView) ||
+    return currentView === 'database' ||
       (currentView === 'playlist' && Boolean(currentPlaylistId));
   }
 
   function getAnyVisibleSongRow() {
-    if (['database', 'favorites'].includes(currentView)) return document.querySelector('.song-row');
+    if (currentView === 'database') return document.querySelector('.song-row');
     if (currentView === 'playlist' && currentPlaylistId) return document.querySelector('.pl-detail-row');
     return null;
   }
@@ -1435,7 +1453,29 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     btn.classList.toggle('show', shouldShow);
   }
 
+  function updateFloatingJumpPosition() {
+    const root = document.documentElement;
+    const anchor = currentView === 'playlist' && currentPlaylistId
+      ? document.getElementById('playlistPage') || document.querySelector('.song-section')
+      : document.querySelector('.song-section');
+    const rect = anchor?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      root.style.removeProperty('--floating-jump-left');
+      return;
+    }
+
+    const visibleLeft = Math.max(0, rect.left);
+    const visibleRight = Math.min(window.innerWidth, rect.right);
+    if (visibleRight <= visibleLeft) {
+      root.style.removeProperty('--floating-jump-left');
+      return;
+    }
+
+    root.style.setProperty('--floating-jump-left', `${(visibleLeft + visibleRight) / 2}px`);
+  }
+
   function updateFloatingJumpButtons() {
+    updateFloatingJumpPosition();
     updateNowPlayingJump();
     updateBackToTopJump();
   }
@@ -1467,6 +1507,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function playHomeOriginal(id) {
+    archiveVideoId = null;
     setNavActiveByLabel('Database');
     setView('database');
     setOriginalFilterActive();
@@ -1477,6 +1518,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function playHomeNew(id) {
+    archiveVideoId = null;
     setNavActiveByLabel('Database');
     setView('database');
     renderSongs();
@@ -1486,6 +1528,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function playHomeRecommendation(id) {
+    archiveVideoId = null;
     setNavActiveByLabel('Database');
     setView('database');
     renderSongs();
@@ -1495,6 +1538,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function goDatabase() {
+    archiveVideoId = null;
     setNavActiveByLabel('Database');
     setView('database');
   }
@@ -1511,9 +1555,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     });
     closeMobileNav(); // close sidebar overlay on mobile after nav tap
     if (label === 'Home')              setView('home');
-    else if (label === 'My Favorites') setView('favorites');
-    else if (label === 'Database')     setView('database');
+    else if (label === 'Database')     { archiveVideoId = null; setView('database'); }
     else if (label === 'Music Video')  setView('mv-gallery');
+    else if (label === 'Archive')      setView('archive');
     else if (label === 'Playlist')     setView('playlist');
     else if (label === 'About')        setView('about');
   }
@@ -1541,14 +1585,17 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const content      = document.querySelector('.content');
     const playlistPage = document.getElementById('playlistPage');
     const mvGalleryPage = document.getElementById('mvGalleryPage');
+    const archivePage  = document.getElementById('archivePage');
     const homePage     = document.getElementById('homePage');
     const aboutPage    = document.getElementById('aboutPage');
+    const archiveSlot  = document.getElementById('archiveFilterSlot');
 
     // Deactivate all full-page panels
-    [playlistPage, mvGalleryPage, homePage, aboutPage].forEach(p => p?.classList.remove('active'));
+    [playlistPage, mvGalleryPage, archivePage, homePage, aboutPage].forEach(p => p?.classList.remove('active'));
+    if (archiveSlot && view !== 'database') archiveSlot.innerHTML = '';
 
     // Full-page views (hide topbar + content)
-    if (view === 'playlist' || view === 'mv-gallery' || view === 'home' || view === 'about') {
+    if (view === 'playlist' || view === 'mv-gallery' || view === 'archive' || view === 'home' || view === 'about') {
       topbar.style.display  = 'none';
       content.style.display = 'none';
       if (view === 'playlist') {
@@ -1564,6 +1611,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         currentPlaylistId = null;
         mvGalleryPage.classList.add('active');
         renderMvGalleryPage();
+      } else if (view === 'archive') {
+        currentPlaylistId = null;
+        archivePage.classList.add('active');
+        renderArchivePage();
       } else if (view === 'home') {
         homePage.classList.add('active');
         homeNewPicks = [];
@@ -1576,7 +1627,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       return;
     }
 
-    // Database / Favorites
+    // Database
     topbar.style.display  = '';
     content.style.display = '';
 
@@ -1931,6 +1982,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   const LS_PLAYLIST_KEY = 'inami_playlists_v1';
   const LS_PLAYLIST_VIEW_KEY = 'inami_playlist_view_mode_v1';
   const DEFAULT_PLAYLISTS = window.MISOLABO_DEFAULT_PLAYLISTS || [];
+  const FAVORITES_PLAYLIST_ID = '__favorites';
   let playlists = [];
   let currentPlaylistId = null;   // null = grid view, else detail view
   let playlistViewMode = 'card';  // 'card' | 'list'
@@ -2011,8 +2063,26 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     return DEFAULT_PLAYLISTS.map(resolveDefaultPlaylist);
   }
 
+  function getFavoritesPlaylist() {
+    const favoriteSongs = [...favorites.entries()]
+      .map(([songId, addedAt]) => ({ songId: String(songId), addedAt: addedAt || 0 }))
+      .filter(item => songs.some(song => song.id === item.songId));
+
+    return {
+      id: FAVORITES_PLAYLIST_ID,
+      name: 'My Favorites',
+      badge: 'FAVORITES',
+      description: 'Starred songs are collected here automatically.',
+      isDefault: true,
+      isFavorites: true,
+      createdAt: -1,
+      songs: favoriteSongs,
+    };
+  }
+
   function getAllPlaylists() {
     return [
+      getFavoritesPlaylist(),
       ...getDefaultPlaylists(),
       ...playlists.map(pl => ({ ...pl, isDefault: false })),
     ];
@@ -2106,6 +2176,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function getPlaylistUpdatedAt(pl) {
+    if (pl.isFavorites) {
+      const favTimes = (pl.songs || []).map(s => s.addedAt || 0);
+      return Math.max(0, ...favTimes);
+    }
     if (pl.isDefault) {
       const songDates = (pl.songs || [])
         .map(item => songs.find(song => song.id === item.songId)?.date)
@@ -2135,6 +2209,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function renderPlaylistCover(pl) {
+    if (pl.isFavorites && !(pl.songs || []).length) {
+      return `<svg class="pl-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+    }
     const coverSong = getPlaylistCoverSong(pl);
     if (coverSong?.videoId) {
       return `<img src="${getYouTubeThumbnail(coverSong.videoId)}" data-video-id="${escapeHtml(coverSong.videoId)}" alt="${escapeHtml(coverSong.title)}" loading="lazy" onload="validateYouTubeThumbnail(this)" onerror="fallbackYouTubeThumbnail(this)">`;
@@ -2387,8 +2464,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                 </svg>
               </div>
               <div class="pl-empty-title">${playlistSearchQuery ? 'No Results' : '曲がありません'}</div>
-              <div class="pl-empty-sub">${playlistSearchQuery ? 'Search another keyword.' : 'プレイヤーの ＋ ボタンから<br>曲を追加してください。'}</div>
-              ${playlistSearchQuery ? '' : `
+              <div class="pl-empty-sub">${playlistSearchQuery ? 'Search another keyword.' : pl.isFavorites ? 'データベースの ★ ボタンから<br>曲を追加してください。' : 'プレイヤーの ＋ ボタンから<br>曲を追加してください。'}</div>
+              ${playlistSearchQuery || pl.isFavorites ? '' : `
                 <div class="pl-empty-actions">
                   <button class="queue-action-btn" onclick="goDatabase()">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -2778,6 +2855,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           <div class="home-section-header">
             <span>Music Video</span>
             <div class="home-section-line"></div>
+            <span class="archive-count">${mvSongs.length} videos</span>
           </div>
           ${mvSongs.length
             ? `<div class="home-cards">${renderHomeCards(mvSongs, false, 'mv-gallery', {
@@ -2787,6 +2865,141 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             : `<div class="pl-empty" style="padding:64px 24px;">
                 <div class="pl-empty-title">No Music Videos</div>
                 <div class="pl-empty-sub">Songs tagged with MV will appear here.</div>
+              </div>`}
+        </div>
+      </div>`;
+  }
+
+  // ── Archive Page ──────────────────────────────────
+  function getArchiveGroups() {
+    const groups = new Map();
+    songs
+      .filter(song => song.videoId)
+      .forEach(song => {
+        const key = song.videoId;
+        const title = song.videoTitle || song.sourceTitle || song.title || 'Untitled Archive';
+        const dateValue = getSongDateValue(song);
+        const current = groups.get(key) || {
+          videoId: key,
+          title,
+          date: song.date || '',
+          dateValue: dateValue || 0,
+          songs: [],
+        };
+
+        current.songs.push(song);
+        if (dateValue > current.dateValue) {
+          current.dateValue = dateValue;
+          current.date = song.date || current.date;
+        }
+        if (String(title).length > String(current.title).length) {
+          current.title = title;
+        }
+        groups.set(key, current);
+      });
+
+    return [...groups.values()]
+      .filter(group => !group.songs.some(song =>
+        (song.tags || []).some(tag => String(tag).toLowerCase() === 'mv')
+      ))
+      .map(group => ({
+        ...group,
+        year: getArchiveYear(group),
+      }));
+  }
+
+  function getArchiveYear(group) {
+    const raw = String(group?.date || '').trim();
+    const match = raw.match(/\b(20\d{2}|19\d{2})\b/);
+    if (match) return match[1];
+    if (!group?.dateValue) return '';
+    const year = new Date(group.dateValue).getFullYear();
+    return Number.isFinite(year) ? String(year) : '';
+  }
+
+  function getArchiveYears(groups = getArchiveGroups()) {
+    return [...new Set(groups.map(group => group.year).filter(Boolean))]
+      .sort((a, b) => Number(b) - Number(a));
+  }
+
+  function getFilteredArchiveGroups() {
+    return getArchiveGroups()
+      .filter(group => !archiveYearFilter || group.year === archiveYearFilter)
+      .sort((a, b) => {
+        if (a.dateValue !== b.dateValue) return b.dateValue - a.dateValue;
+        return SORT_COLLATOR.compare(a.title, b.title);
+      });
+  }
+
+  function setArchiveYearFilter(year) {
+    const nextYear = String(year || '');
+    archiveYearFilter = archiveYearFilter === nextYear ? '' : nextYear;
+    renderArchivePage();
+  }
+
+  function resetArchiveFilters() {
+    archiveYearFilter = '';
+    renderArchivePage();
+  }
+
+  function openArchiveVideo(videoId) {
+    archiveVideoId = String(videoId);
+    searchQuery = '';
+    setNavActiveByLabel('Database');
+    setView('database');
+  }
+
+  function renderArchivePage() {
+    const page = document.getElementById('archivePage');
+    if (!page) return;
+
+    if (!songs.length) {
+      page.innerHTML = `
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+          <div style="color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">Loading...</div>
+        </div>`;
+      return;
+    }
+
+    const allArchiveGroups = getArchiveGroups();
+    const archiveGroups = getFilteredArchiveGroups();
+    const archiveYears = getArchiveYears(allArchiveGroups);
+    page.innerHTML = `
+      <div class="home-content archive-content">
+        <div class="home-section">
+          <div class="archive-toolbar filters control-chip-row" aria-label="Archive year filter">
+            <button class="tag archive-year-tag ${!archiveYearFilter ? 'active' : ''}" type="button" onclick="setArchiveYearFilter('')" aria-pressed="${!archiveYearFilter}">All Years</button>
+            ${archiveYears.map(year => `
+              <button class="tag archive-year-tag ${archiveYearFilter === year ? 'active' : ''}" type="button" onclick="setArchiveYearFilter('${year}')" aria-pressed="${archiveYearFilter === year}">${year}</button>`).join('')}
+            <button class="tag reset-tag" type="button" onclick="resetArchiveFilters()">↺ Reset</button>
+          </div>
+          <div class="home-section-header">
+            <span>Archive</span>
+            <div class="home-section-line"></div>
+            <span class="archive-count">${archiveGroups.length} videos</span>
+          </div>
+          ${archiveGroups.length
+            ? `<div class="archive-grid">
+                ${archiveGroups.map(group => `
+                  <button class="archive-card" type="button" data-video-id="${escapeHtml(group.videoId)}" onclick="openArchiveVideo(${jsString(group.videoId)})">
+                    <img class="archive-card-thumb"
+                      src="${getYouTubeThumbnail(group.videoId)}"
+                      data-video-id="${escapeHtml(group.videoId)}"
+                      alt="${escapeHtml(group.title)}" loading="lazy"
+                      onload="validateYouTubeThumbnail(this)"
+                      onerror="fallbackYouTubeThumbnail(this)">
+                    <div class="archive-card-info">
+                      <div class="archive-card-title">${escapeHtml(group.title)}</div>
+                      <div class="archive-card-meta">
+                        <span>${escapeHtml(group.date || '—')}</span>
+                        <span>${group.songs.length} songs</span>
+                      </div>
+                    </div>
+                  </button>`).join('')}
+              </div>`
+            : `<div class="pl-empty" style="padding:64px 24px;">
+                <div class="pl-empty-title">No Archives</div>
+                <div class="pl-empty-sub">Video records will appear here.</div>
               </div>`}
         </div>
       </div>`;
@@ -2901,6 +3114,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   window.addEventListener('scroll', updateFloatingJumpButtons, { passive: true });
   document.querySelector('.song-section')?.addEventListener('scroll', updateFloatingJumpButtons, { passive: true });
   document.querySelector('.content')?.addEventListener('scroll', updateFloatingJumpButtons, { passive: true });
+  window.addEventListener('resize', () => requestAnimationFrame(updateFloatingJumpButtons), { passive: true });
+  window.addEventListener('orientationchange', () => setTimeout(updateFloatingJumpButtons, 120), { passive: true });
 
   // Close add-to-playlist modal when clicking outside
   document.getElementById('addToPlaylistOverlay').addEventListener('click', function(e) {
