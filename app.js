@@ -20,46 +20,17 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
         ],
       },
       {
-        type: 'features',
-        title: 'Lab Features',
-        features: [
-          {
-            label: 'Database',
-            items: [
-              '再生可能な楽曲データと、ライブ・限定公開・消える歌枠などの記録用データをまとめて検索可能',
-              'FILTER / SORT / SEARCH / COLLAB 絞り込みに対応',
-              '再生不可の記録用データは通常の楽曲より淡く表示（リンクがある場合は関連ページへ移動可能）',
-            ],
-          },
-          {
-            label: 'Archive',
-            items: [
-              '歌枠・動画単位のカード一覧から、該当回の収録曲だけを絞り込み可能',
-              'カードには動画タイトルと公開日を表示',
-            ],
-          },
-          {
-            label: 'Music Video',
-            items: [
-              'MVタグ付きの楽曲をカード形式で一覧表示',
-              '公開日順で閲覧でき、cover / original の切り替え表示に対応',
-              'カードを選択すると Music Video ページ内の並び順で続けて再生可能',
-            ],
-          },
-          {
-            label: 'Playlist',
-            items: [
-              '楽曲一覧、または画面下部プレイヤーの「＋」から再生可能楽曲をプレイリストに追加可能',
-              'My Favorites は固定プレイリストとして先頭に表示',
-              'あらかじめ用意された PICK UP プレイリストと、ユーザー作成プレイリストに対応',
-            ],
-          },
-        ],
-      },
-      {
         type: 'changelog',
         title: 'System Log',
         entries: [
+          {
+            version: 'Ver 0.9.7',
+            items: [
+              'Archive ページを追加し、歌枠・動画単位で収録曲を確認できるように改善',
+              'お気に入りとプレイリスト機能を整理し、単体プレイリストの JSON 共有に対応',
+              'PICK UP プレイリストを trackID ベースに変更し、guest 表示など楽曲カードの情報整理を改善',
+            ],
+          },
           {
             version: 'Ver 0.9.5',
             items: [
@@ -129,6 +100,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   let queueSource     = { type: 'database', playlistId: null, songIds: [] };
   let archiveVideoId  = null;
   let archiveYearFilter = '';
+  let archiveTypeFilter = '';
+  let archiveSearchQuery = '';
+  let archiveSortMode = 'date-desc';
 
   // Sort modes
   let dbSortMode      = 'date-desc';   // database default: newest upload first
@@ -137,6 +111,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   let filterPanelOpen = false;
   let sortPanelOpen   = false;
   let plSortPanelOpen = false;
+  let archiveFilterPanelOpen = false;
+  let archiveSortPanelOpen = false;
   let collabPopupOpen = false;
   let collabShowMore  = false;
 
@@ -300,6 +276,20 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       .split(/[,、]/)
       .map(item => item.trim())
       .filter(Boolean);
+  }
+
+  function hasSongTag(song, tagName) {
+    const target = String(tagName || '').toLowerCase();
+    return (song.tags || []).some(tag => String(tag).toLowerCase() === target);
+  }
+
+  function getVisibleSongTags(song) {
+    return (song.tags || []).filter(tag => String(tag).toLowerCase() !== 'guest');
+  }
+
+  function getCardSingerTypeTag(song) {
+    if (!(song.collaborators || '').trim()) return 'SOLO';
+    return hasSongTag(song, 'guest') ? 'GUEST' : 'COLLAB';
   }
 
   function getTrackStableId(track, index) {
@@ -467,8 +457,6 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const dbQueue = sortSongs(songs, 'date-desc').filter(s => s.isPlayable);
     if (!dbQueue.length) return;
     setQueueSource('database', dbQueue.map(s => s.id));
-    currentSong = dbQueue[0];
-    updatePlayerDisplay(currentSong);
   }
 
   // ── Load songs from Google Sheets (with cache)
@@ -497,7 +485,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
       if (!songs.length) {
         document.getElementById('songList').innerHTML =
-          `<div style="padding:48px 24px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">No songs found.<br><br>Check isValidTrack=TRUE and status=public.</div>`;
+          `<div style="padding:48px 24px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">楽曲データが見つかりません。<br><br>isValidTrack=TRUE / status=public を確認してください。</div>`;
         return;
       }
 
@@ -517,7 +505,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       if (collabPopupOpen) renderCollabPopupList();
     } catch (e) {
       document.getElementById('songList').innerHTML =
-        `<div style="padding:48px 24px;color:#f87171;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;">⚠ LOAD ERROR<br><br>${e.message}</div>`;
+        `<div style="padding:48px 24px;color:#f87171;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;">⚠ 読み込みエラー<br><br>${e.message}</div>`;
     }
   }
 
@@ -583,7 +571,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (archiveSlot) archiveSlot.innerHTML = archiveGroup ? `
       <div class="archive-filter-banner">
         <div class="archive-filter-text">
-          <span class="archive-filter-kicker">Archive Filter</span>
+          <span class="archive-filter-kicker">Archive で絞り込み中</span>
           <span class="archive-filter-title">${escapeHtml(archiveGroup.title)}</span>
         </div>
         <div class="archive-filter-actions">
@@ -600,7 +588,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
     if (!filtered.length) {
       list.innerHTML =
-        `<div style="padding:48px 24px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">No results.</div>`;
+        `<div style="padding:48px 24px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">該当する楽曲がありません。</div>`;
       updateFloatingJumpButtons();
       return;
     }
@@ -616,7 +604,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
           ? ''
         : `onclick="playSong(${songIdArg}, { source: 'current-list' })"`;
       const recordMeta = [
-        ...(s.tags || []).map(t => `<span class="song-tag ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`),
+        ...getVisibleSongTags(s).map(t => `<span class="song-tag ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`),
         ...(s.sourceChips || []).map(t => `<span class="song-tag record-chip">${escapeHtml(t)}</span>`),
       ].join('');
       return `
@@ -625,10 +613,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
            ${rowAction}>
         <div class="song-index">
           <span class="song-num">${i + 1}</span>
-          ${!isUnplayable ? `<svg class="song-play-icon" viewBox="0 0 24 24" fill="currentColor">
+          ${!isUnplayable ? `<svg class="song-play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round">
             ${currentSong && s.id === currentSong.id && isPlaying
-              ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
-              : '<polygon points="5 3 19 12 5 21 5 3"/>'}
+              ? '<line x1="8" y1="5" x2="8" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/>'
+              : '<polygon points="7 5 18 12 7 19 7 5"/>'}
           </svg>` : ''}
         </div>
         <div class="song-info">
@@ -947,6 +935,13 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function togglePlay() {
+    if (!currentSong) {
+      setQueueFromCurrentList();
+      const target = getPlaybackQueue()[0];
+      if (target) playSong(target.id, { preserveQueue: true });
+      return;
+    }
+
     if (!ytPlayer || typeof ytPlayer.playVideo !== 'function') {
       const currentIds = getCurrentListSongIds();
       const currentInList = currentSong && currentIds.includes(currentSong.id);
@@ -1039,11 +1034,13 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
   function syncCollabPopupA11y() {
     const popup = document.getElementById('collabPopup');
-    const btn = document.getElementById('collabToggleBtn');
     popup?.classList.toggle('open', collabPopupOpen);
     popup?.setAttribute('aria-hidden', String(!collabPopupOpen));
-    btn?.classList.toggle('open', collabPopupOpen);
-    btn?.setAttribute('aria-expanded', String(collabPopupOpen));
+    ['collabToggleBtn', 'archiveCollabToggleBtn'].forEach(buttonId => {
+      const btn = document.getElementById(buttonId);
+      btn?.classList.toggle('open', collabPopupOpen);
+      btn?.setAttribute('aria-expanded', String(collabPopupOpen));
+    });
   }
 
   function toggleFilterPanel() {
@@ -1094,11 +1091,16 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const dot = document.getElementById('filterActiveDot');
     if (dot) dot.classList.toggle('visible', activeTags.size > 0);
     document.getElementById('collabActiveDot')?.classList.toggle('visible', selectedCollabs.size > 0);
+    document.getElementById('archiveFilterActiveDot')?.classList.toggle('visible', Boolean(archiveYearFilter || archiveTypeFilter));
+    document.getElementById('archiveCollabActiveDot')?.classList.toggle('visible', selectedCollabs.size > 0);
   }
 
   function getCollaboratorStats() {
     const stats = new Map();
-    songs.forEach(song => {
+    const sourceSongs = currentView === 'archive'
+      ? getArchiveGroups().flatMap(group => group.songs)
+      : songs;
+    sourceSongs.forEach(song => {
       new Set(splitCollaborators(song.collaborators)).forEach(name => {
         const current = stats.get(name) || { name, trackCount: 0, totalCount: 0 };
         current.totalCount += 1;
@@ -1211,12 +1213,20 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     collabPopupOpen = true;
     filterPanelOpen = false;
     sortPanelOpen = false;
+    archiveFilterPanelOpen = false;
+    archiveSortPanelOpen = false;
     document.getElementById('filterPanel')?.classList.remove('open');
     document.getElementById('sortPanel')?.classList.remove('open');
+    document.getElementById('archiveFilterPanel')?.classList.remove('open');
+    document.getElementById('archiveSortPanel')?.classList.remove('open');
     document.getElementById('filterToggleBtn')?.classList.remove('open');
     document.getElementById('sortToggleBtn')?.classList.remove('open');
+    document.getElementById('archiveFilterToggleBtn')?.classList.remove('open');
+    document.getElementById('archiveSortToggleBtn')?.classList.remove('open');
     syncPanelA11y('filterPanel', 'filterToggleBtn', false);
     syncPanelA11y('sortPanel', 'sortToggleBtn', false);
+    syncPanelA11y('archiveFilterPanel', 'archiveFilterToggleBtn', false);
+    syncPanelA11y('archiveSortPanel', 'archiveSortToggleBtn', false);
     renderCollabPopupList();
     syncCollabPopupA11y();
   }
@@ -1241,7 +1251,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     selectedCollabs.has(name) ? selectedCollabs.delete(name) : selectedCollabs.add(name);
     renderCollabPopupList();
     updateFilterActiveDot();
-    renderSongs();
+    if (currentView === 'archive') renderArchivePage();
+    else renderSongs();
     if (currentSong) updateYtInfo();
   }
 
@@ -1249,7 +1260,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     selectedCollabs.clear();
     renderCollabPopupList();
     updateFilterActiveDot();
-    renderSongs();
+    if (currentView === 'archive') renderArchivePage();
+    else renderSongs();
     if (currentSong) updateYtInfo();
   }
 
@@ -1718,14 +1730,15 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     html.setAttribute('data-theme', isDark ? 'light' : 'dark');
     syncThemeIcon();
   }
+  window.toggleTheme = toggleTheme;
 
   // ── YouTube Side Panel
   function updateYtInfo() {
     if (!currentSong) return;
     document.getElementById('ytSongTitle').textContent  = currentSong.title;
     document.getElementById('ytSongArtist').textContent = currentSong.artist;
-    document.getElementById('ytSongTags').innerHTML = currentSong.tags.map(t =>
-      `<span class="song-tag ${t.toLowerCase()}">${t}</span>`).join('');
+    document.getElementById('ytSongTags').innerHTML = getVisibleSongTags(currentSong).map(t =>
+      `<span class="song-tag ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`).join('');
 
     // Collab chips
     const collabSection = document.getElementById('ytCollabSection');
@@ -2053,9 +2066,15 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function findSongByRef(ref) {
+    const trackId = normalizePlaylistText(ref.trackID || ref.trackId || ref.id);
     const title = normalizePlaylistText(ref.title);
     const artist = normalizePlaylistText(ref.artist);
     const videoId = normalizePlaylistText(ref.videoId);
+
+    if (trackId) {
+      const byTrackId = songs.find(song => normalizePlaylistText(song.id) === trackId);
+      if (byTrackId) return byTrackId;
+    }
 
     if (videoId && title && artist) {
       const exact = songs.find(song =>
@@ -2107,9 +2126,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
 
     return {
       id: FAVORITES_PLAYLIST_ID,
-      name: 'My Favorites',
-      badge: 'FAVORITES',
-      description: 'Starred songs are collected here automatically.',
+      name: 'お気に入り',
+      badge: '',
+      description: '★ を付けた楽曲が自動で集まります。',
       isDefault: true,
       isFavorites: true,
       createdAt: -1,
@@ -2165,6 +2184,109 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (currentPlaylistId === id) currentPlaylistId = null;
     savePlaylistsToStorage();
     renderPlaylistPage();
+  }
+
+  function getPlaylistExportData(pl) {
+    return {
+      schema: 'misolabo-playlist',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      name: pl.name,
+      createdAt: pl.createdAt || Date.now(),
+      tracks: (pl.songs || [])
+        .map(item => {
+          const song = songs.find(s => s.id === String(item.songId));
+          return song ? {
+            trackID: song.id,
+            addedAt: item.addedAt || 0,
+          } : null;
+        })
+        .filter(Boolean),
+    };
+  }
+
+  function downloadPlaylistJson(id, e) {
+    e?.stopPropagation();
+    const pl = playlists.find(item => item.id === id);
+    if (!pl) return;
+    const data = JSON.stringify(getPlaylistExportData(pl), null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const safeName = String(pl.name || 'playlist').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 40);
+    a.href = url;
+    a.download = `misolabo-${safeName}-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('プレイリストを書き出しました。');
+  }
+
+  function openPlaylistImportFile() {
+    document.getElementById('playlistImportInput')?.click();
+  }
+
+  function normalizeImportedPlaylist(raw, index) {
+    if (!raw || typeof raw !== 'object') return null;
+    const name = String(raw.name || '').trim();
+    if (!name) return null;
+    const songItems = Array.isArray(raw.tracks)
+      ? raw.tracks
+      : Array.isArray(raw.songs)
+        ? raw.songs
+        : [];
+    const importedSongs = songItems
+      .map((item, songIndex) => {
+        const songId = String(item?.trackID || item?.trackId || item?.songId || item?.id || '').trim();
+        if (!songId || !songs.some(song => song.id === songId)) return null;
+        return {
+          songId,
+          addedAt: Number(item?.addedAt) || Date.now() + songIndex,
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      id: genPlaylistId() + '_' + index,
+      name,
+      createdAt: Number(raw.createdAt) || Date.now(),
+      songs: importedSongs,
+    };
+  }
+
+  function importPlaylistsJson(event) {
+    const input = event?.target;
+    const file = input?.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ''));
+        const rawPlaylists = Array.isArray(parsed) ? parsed : [parsed];
+        const imported = rawPlaylists
+          .map((pl, index) => normalizeImportedPlaylist(pl, index))
+          .filter(Boolean);
+
+        if (!imported.length) {
+          showToast('読み込めるプレイリストがありません。');
+          return;
+        }
+
+        playlists = [...playlists, ...imported];
+        currentPlaylistId = null;
+        savePlaylistsToStorage();
+        renderPlaylistPage();
+        showToast(`${imported.length} 件のプレイリストを読み込みました。`);
+      } catch (err) {
+        showToast('JSON の読み込みに失敗しました。');
+      } finally {
+        if (input) input.value = '';
+      }
+    };
+    reader.readAsText(file);
   }
 
   function removeSongFromPlaylist(playlistId, songId, e) {
@@ -2246,6 +2368,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   function renderPlaylistCover(pl) {
+    if (pl.id === 'pickup-first-inami') {
+      return `<svg class="pl-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A6 6 0 1 1 15.5 14.5c-.9.7-1.5 1.8-1.5 3h-4c0-1.2-.6-2.3-1.5-3Z"/></svg>`;
+    }
     if (pl.isFavorites && !(pl.songs || []).length) {
       return `<svg class="pl-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
     }
@@ -2254,6 +2379,16 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       return `<img src="${getYouTubeThumbnail(coverSong.videoId)}" data-video-id="${escapeHtml(coverSong.videoId)}" alt="${escapeHtml(coverSong.title)}" loading="lazy" onload="validateYouTubeThumbnail(this)" onerror="fallbackYouTubeThumbnail(this)">`;
     }
     return `<svg class="pl-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICON_PLAYLIST_LINES}</svg>`;
+  }
+
+  function renderPlaylistListIcon(pl) {
+    if (pl.id === 'pickup-first-inami') {
+      return `<svg class="pl-list-icon pickup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A6 6 0 1 1 15.5 14.5c-.9.7-1.5 1.8-1.5 3h-4c0-1.2-.6-2.3-1.5-3Z"/></svg>`;
+    }
+    if (pl.isDefault) {
+      return `<svg class="pl-list-icon pickup" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 14.95 8.17 21.76 9.09 16.82 13.82 18.04 20.56 12 17.28 5.96 20.56 7.18 13.82 2.24 9.09 9.05 8.17 12 2"/></svg>`;
+    }
+    return `<svg class="pl-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICON_PLAYLIST_LINES}</svg>`;
   }
 
   // ── Grid view (all playlists)
@@ -2279,6 +2414,11 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Playlist
           </button>
+          <button class="queue-action-btn" onclick="openPlaylistImportFile()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            Import
+          </button>
+          <input id="playlistImportInput" type="file" accept="application/json,.json" hidden onchange="importPlaylistsJson(event)">
         </div>
         <div id="plCreateArea"></div>
         ${playlistItems.length === 0
@@ -2286,12 +2426,12 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
               <div class="pl-empty-icon">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICON_PLAYLIST_LINES}</svg>
               </div>
-              <div class="pl-empty-title">No Playlists Yet</div>
-              <div class="pl-empty-sub">Create a playlist, then add songs<br>from the player ＋ button.</div>
+              <div class="pl-empty-title">プレイリストがありません</div>
+              <div class="pl-empty-sub">プレイリストを作成してから、<br>プレイヤーの ＋ ボタンで楽曲を追加できます。</div>
               <div class="pl-empty-actions">
                 <button class="queue-action-btn" onclick="goDatabase()">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                  Browse Database
+                  Database を見る
                 </button>
               </div>
             </div>`
@@ -2303,41 +2443,49 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                   <div class="pl-card-info">
                     <div class="pl-name-row">
                       <div class="pl-card-name">${escapeHtml(pl.name)}</div>
-                      ${pl.isDefault ? `<div class="pl-pickup-badge">${escapeHtml(pl.badge || 'PICK UP')}</div>` : ''}
+                      ${pl.isDefault && pl.badge ? `<div class="pl-pickup-badge">${escapeHtml(pl.badge)}</div>` : ''}
                     </div>
                     <div class="pl-card-count">${pl.songs.length} songs</div>
                     <div class="pl-card-updated">Updated ${pl.updatedAt}</div>
                   </div>
-                  ${pl.isDefault ? '' : `<button class="pl-delete-btn card" onclick="deletePlaylist('${pl.id}', event)" title="削除" aria-label="Delete ${escapeHtml(pl.name)}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                      <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                    </svg>
-                  </button>`}
+                  ${pl.isDefault ? '' : `
+                    <button class="pl-export-btn card" onclick="downloadPlaylistJson('${pl.id}', event)" title="Export" aria-label="Export ${escapeHtml(pl.name)}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                    </button>
+                    <button class="pl-delete-btn card" onclick="deletePlaylist('${pl.id}', event)" title="削除" aria-label="Delete ${escapeHtml(pl.name)}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                        <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>`}
                 </div>`).join('')}
             </div>`
             : `<div class="pl-list">
               ${playlistItems.map(pl => `
                 <div class="pl-list-row ${pl.isDefault ? 'pl-list-row-pickup' : ''}" onclick="openPlaylistDetail('${pl.id}')">
-                  ${pl.isDefault
-                    ? `<svg class="pl-list-icon pickup" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 14.95 8.17 21.76 9.09 16.82 13.82 18.04 20.56 12 17.28 5.96 20.56 7.18 13.82 2.24 9.09 9.05 8.17 12 2"/></svg>`
-                    : `<svg class="pl-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICON_PLAYLIST_LINES}</svg>`}
+                  ${renderPlaylistListIcon(pl)}
                   <div class="pl-list-main">
                     <div class="pl-name-row">
                       <div class="pl-list-name">${escapeHtml(pl.name)}</div>
-                      ${pl.isDefault ? `<div class="pl-pickup-badge">${escapeHtml(pl.badge || 'PICK UP')}</div>` : ''}
+                      ${pl.isDefault && pl.badge ? `<div class="pl-pickup-badge">${escapeHtml(pl.badge)}</div>` : ''}
                     </div>
                     <div class="pl-list-meta">Updated ${pl.updatedAt}</div>
                   </div>
                   <div class="pl-list-count">${pl.songs.length} songs</div>
-                  ${pl.isDefault ? '<span></span>' : `<button class="pl-delete-btn list" onclick="deletePlaylist('${pl.id}', event)" title="削除" aria-label="Delete ${escapeHtml(pl.name)}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                      <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                    </svg>
-                  </button>`}
+                  <div class="pl-list-actions ${pl.isDefault ? 'placeholder' : ''}">
+                    ${pl.isDefault ? '' : `
+                      <button class="pl-export-btn list" onclick="downloadPlaylistJson('${pl.id}', event)" title="Export" aria-label="Export ${escapeHtml(pl.name)}">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                      </button>
+                      <button class="pl-delete-btn list" onclick="deletePlaylist('${pl.id}', event)" title="削除" aria-label="Delete ${escapeHtml(pl.name)}">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>`}
+                  </div>
                 </div>`).join('')}
             </div>`}
       </div>`;
@@ -2500,13 +2648,13 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                   <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
                 </svg>
               </div>
-              <div class="pl-empty-title">${playlistSearchQuery ? 'No Results' : '曲がありません'}</div>
-              <div class="pl-empty-sub">${playlistSearchQuery ? 'Search another keyword.' : pl.isFavorites ? 'データベースの ★ ボタンから<br>曲を追加してください。' : 'プレイヤーの ＋ ボタンから<br>曲を追加してください。'}</div>
+              <div class="pl-empty-title">${playlistSearchQuery ? '該当する楽曲がありません' : '曲がありません'}</div>
+              <div class="pl-empty-sub">${playlistSearchQuery ? '別のキーワードで検索してください。' : pl.isFavorites ? 'データベースの ★ ボタンから<br>曲を追加してください。' : 'プレイヤーの ＋ ボタンから<br>曲を追加してください。'}</div>
               ${playlistSearchQuery || pl.isFavorites ? '' : `
                 <div class="pl-empty-actions">
                   <button class="queue-action-btn" onclick="goDatabase()">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                    Browse Database
+                    Database を見る
                   </button>
                 </div>`}
             </div>`
@@ -2519,10 +2667,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                   onclick="playSong(${songIdArg}, { type: 'playlist', playlistId: '${id}', songIds: ${detailSongIdsArg} })">
                   <div class="song-index">
                     <span class="song-num">${i + 1}</span>
-                    <svg class="song-play-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <svg class="song-play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round">
                       ${currentSong && s.id === currentSong.id && isPlaying
-                        ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
-                        : '<polygon points="5 3 19 12 5 21 5 3"/>'}
+                        ? '<line x1="8" y1="5" x2="8" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/>'
+                        : '<polygon points="7 5 18 12 7 19 7 5"/>'}
                     </svg>
                   </div>
                   <div class="song-info">
@@ -2531,7 +2679,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                     ${s.collaborators ? `<div class="song-collab-row">with ${escapeHtml(formatCollabs(s.collaborators))}</div>` : ''}
                   </div>
                   <div class="song-meta">
-                    ${s.tags.map(t => `<span class="song-tag ${t.toLowerCase()}">${escapeHtml(t)}</span>`).join('')}
+                    ${getVisibleSongTags(s).map(t => `<span class="song-tag ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`).join('')}
                     ${pl.isDefault ? '' : `<button class="pl-row-del" onclick="removeSongFromPlaylist('${id}', ${songIdArg}, event)" title="削除">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -2587,8 +2735,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     if (playlists.length === 0) {
       list.innerHTML = `
         <div style="padding:28px 18px;text-align:center;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.15em;text-transform:uppercase;line-height:2.2;">
-          No playlists yet.<br>
-          <span style="opacity:0.6;font-size:8px;">Go to PLAYLIST in the sidebar to create one.</span>
+          プレイリストがありません。<br>
+          <span style="opacity:0.6;font-size:8px;">サイドバーの PLAYLIST から作成できます。</span>
         </div>`;
       return;
     }
@@ -2648,7 +2796,7 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     });
     savePlaylistsToStorage();
     closeAddToPlaylistModal();
-    showToast(addedCount ? `Saved to ${addedCount} playlist${addedCount === 1 ? '' : 's'}` : 'Removed from playlists');
+    showToast(addedCount ? `${addedCount} 件のプレイリストに保存しました。` : 'プレイリストから削除しました。');
     if (currentView === 'playlist' && currentPlaylistId) renderPlaylistPage();
   }
 
@@ -2717,9 +2865,9 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       const overlayCollabStr = formatCollabsJP(s.collaborators);
       const songIdArg = jsString(s.id);
       const recommendationTypeTag = ['recommendation', 'home-new'].includes(clickMode)
-        ? [(s.collaborators || '').trim() ? 'COLLAB' : 'SOLO']
+        ? [getCardSingerTypeTag(s)]
         : [];
-      const cardTags = [...new Set([...recommendationTypeTag, ...(s.tags || [])])];
+      const cardTags = [...new Set([...recommendationTypeTag, ...getVisibleSongTags(s)])];
       const clickHandler = clickMode === 'original'
         ? `playHomeOriginal(${songIdArg})`
         : clickMode === 'home-new'
@@ -2900,8 +3048,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                 showPlaying: queueSource.type === 'mv-gallery',
               })}</div>`
             : `<div class="pl-empty" style="padding:64px 24px;">
-                <div class="pl-empty-title">No Music Videos</div>
-                <div class="pl-empty-sub">Songs tagged with MV will appear here.</div>
+                <div class="pl-empty-title">Music Video がありません</div>
+                <div class="pl-empty-sub">MV タグ付きの楽曲がここに表示されます。</div>
               </div>`}
         </div>
       </div>`;
@@ -2959,25 +3107,127 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
       .sort((a, b) => Number(b) - Number(a));
   }
 
+  function archiveGroupHasStage(group) {
+    return group.songs.some(song =>
+      (song.tags || []).some(tag => String(tag).toLowerCase() === 'stage')
+    );
+  }
+
+  function getArchiveGroupCollaborators(group) {
+    return [...new Set(group.songs.flatMap(song => splitCollaborators(song.collaborators)))]
+      .sort((a, b) => SORT_COLLATOR.compare(a, b));
+  }
+
+  function archiveGroupMatchesSearch(group, query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return true;
+    if (String(group.title || '').toLowerCase().includes(q)) return true;
+    return getArchiveGroupCollaborators(group).some(name => name.toLowerCase().includes(q));
+  }
+
+  function sortArchiveGroups(groups, mode = archiveSortMode) {
+    const sorted = [...groups];
+    if (mode === 'date-asc') {
+      sorted.sort((a, b) =>
+        (a.dateValue - b.dateValue) ||
+        SORT_COLLATOR.compare(a.title, b.title)
+      );
+    } else if (mode === 'title-asc') {
+      sorted.sort((a, b) =>
+        SORT_COLLATOR.compare(a.title, b.title) ||
+        (b.dateValue - a.dateValue)
+      );
+    } else if (mode === 'title-desc') {
+      sorted.sort((a, b) =>
+        SORT_COLLATOR.compare(b.title, a.title) ||
+        (b.dateValue - a.dateValue)
+      );
+    } else {
+      sorted.sort((a, b) =>
+        (b.dateValue - a.dateValue) ||
+        SORT_COLLATOR.compare(a.title, b.title)
+      );
+    }
+    return sorted;
+  }
+
   function getFilteredArchiveGroups() {
-    return getArchiveGroups()
+    return sortArchiveGroups(getArchiveGroups()
       .filter(group => !archiveYearFilter || group.year === archiveYearFilter)
-      .sort((a, b) => {
-        if (a.dateValue !== b.dateValue) return b.dateValue - a.dateValue;
-        return SORT_COLLATOR.compare(a.title, b.title);
-      });
+      .filter(group => {
+        if (archiveTypeFilter === 'stage') return archiveGroupHasStage(group);
+        if (archiveTypeFilter === 'other') return !archiveGroupHasStage(group);
+        return true;
+      })
+      .filter(group => {
+        const groupCollabs = getArchiveGroupCollaborators(group);
+        return selectedCollabs.size === 0 || groupCollabs.some(name => selectedCollabs.has(name));
+      })
+      .filter(group => archiveGroupMatchesSearch(group, archiveSearchQuery)));
   }
 
   function setArchiveYearFilter(year) {
     const nextYear = String(year || '');
-    archiveYearFilter = archiveYearFilter === nextYear ? '' : nextYear;
+    archiveYearFilter = nextYear;
+    updateFilterActiveDot();
+    renderArchivePage();
+  }
+
+  function setArchiveTypeFilter(type) {
+    const nextType = String(type || '').toLowerCase();
+    archiveTypeFilter = archiveTypeFilter === nextType ? '' : nextType;
+    updateFilterActiveDot();
+    renderArchivePage();
+  }
+
+  function setArchiveSort(mode) {
+    archiveSortMode = mode;
+    renderArchivePage();
+  }
+
+  function filterArchive(q) {
+    archiveSearchQuery = q;
+    renderArchivePage();
+    requestAnimationFrame(() => {
+      const input = document.querySelector('#archivePage .search-input');
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      try { input.setSelectionRange(end, end); } catch(e) {}
+    });
+  }
+
+  function toggleArchiveFilterPanel() {
+    archiveFilterPanelOpen = !archiveFilterPanelOpen;
+    if (archiveFilterPanelOpen) archiveSortPanelOpen = false;
+    if (archiveFilterPanelOpen) closeCollabPopup();
+    renderArchivePage();
+  }
+
+  function toggleArchiveSortPanel() {
+    archiveSortPanelOpen = !archiveSortPanelOpen;
+    if (archiveSortPanelOpen) archiveFilterPanelOpen = false;
+    if (archiveSortPanelOpen) closeCollabPopup();
     renderArchivePage();
   }
 
   function resetArchiveFilters() {
     archiveYearFilter = '';
+    archiveTypeFilter = '';
+    archiveSearchQuery = '';
+    selectedCollabs.clear();
+    renderCollabPopupList();
+    updateFilterActiveDot();
     renderArchivePage();
   }
+
+  window.setArchiveYearFilter = setArchiveYearFilter;
+  window.setArchiveTypeFilter = setArchiveTypeFilter;
+  window.setArchiveSort = setArchiveSort;
+  window.filterArchive = filterArchive;
+  window.toggleArchiveFilterPanel = toggleArchiveFilterPanel;
+  window.toggleArchiveSortPanel = toggleArchiveSortPanel;
+  window.resetArchiveFilters = resetArchiveFilters;
 
   function openArchiveVideo(videoId) {
     archiveVideoId = String(videoId);
@@ -3001,20 +3251,61 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
     const allArchiveGroups = getArchiveGroups();
     const archiveGroups = getFilteredArchiveGroups();
     const archiveYears = getArchiveYears(allArchiveGroups);
+    const archiveSortOptions = [
+      ['date-desc', '公開日(新しい順)'],
+      ['date-asc', '公開日(古い順)'],
+    ];
     page.innerHTML = `
-      <div class="home-content archive-content">
-        <div class="home-section">
-          <div class="archive-toolbar filters control-chip-row" aria-label="Archive year filter">
-            <button class="tag archive-year-tag ${!archiveYearFilter ? 'active' : ''}" type="button" onclick="setArchiveYearFilter('')" aria-pressed="${!archiveYearFilter}">All Years</button>
-            ${archiveYears.map(year => `
-              <button class="tag archive-year-tag ${archiveYearFilter === year ? 'active' : ''}" type="button" onclick="setArchiveYearFilter('${year}')" aria-pressed="${archiveYearFilter === year}">${year}</button>`).join('')}
+      <div class="archive-topbar pl-topbar">
+        <div class="archive-topbar-row pl-topbar-row">
+          <div class="topbar-controls">
+            <button class="topbar-toggle-btn ${archiveFilterPanelOpen ? 'open' : ''}" id="archiveFilterToggleBtn" onclick="toggleArchiveFilterPanel()" title="Filter" aria-label="Filter" aria-controls="archiveFilterPanel" aria-expanded="${archiveFilterPanelOpen}">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <span class="topbar-toggle-label">Filter</span>
+              <span class="filter-active-dot ${archiveYearFilter || archiveTypeFilter ? 'visible' : ''}" id="archiveFilterActiveDot"></span>
+              <svg class="toggle-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="topbar-toggle-btn ${archiveSortPanelOpen ? 'open' : ''}" id="archiveSortToggleBtn" onclick="toggleArchiveSortPanel()" title="Sort" aria-label="Sort" aria-controls="archiveSortPanel" aria-expanded="${archiveSortPanelOpen}">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+              <span class="topbar-toggle-label">Sort</span>
+              <svg class="toggle-chevron" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="topbar-toggle-btn" id="archiveCollabToggleBtn" onclick="toggleCollabPopup(event)" title="Collab" aria-label="Collab" aria-controls="collabPopup" aria-expanded="false">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 21a7 7 0 0 1 14 0"/><circle cx="17" cy="8" r="3"/><path d="M17 14a5 5 0 0 1 4 7"/></svg>
+              <span class="topbar-toggle-label">Collab</span>
+              <span class="filter-active-dot ${selectedCollabs.size ? 'visible' : ''}" id="archiveCollabActiveDot"></span>
+            </button>
+          </div>
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="search-input" type="text" placeholder="SEARCH" aria-label="Search archive videos" value="${escapeHtml(archiveSearchQuery)}" oninput="filterArchive(this.value)">
+          </div>
+          <span class="song-count archive-count">${archiveGroups.length} videos</span>
+        </div>
+        <div class="collapsible-panel ${archiveFilterPanelOpen ? 'open' : ''}" id="archiveFilterPanel" aria-hidden="${!archiveFilterPanelOpen}">
+          <div class="filters control-chip-row">
+            <div class="filter-group">
+              ${archiveYears.map(year => `
+                <button class="tag archive-year-tag ${archiveYearFilter === year ? 'active' : ''}" type="button" onclick="setArchiveYearFilter('${year}')" aria-pressed="${archiveYearFilter === year}">${escapeHtml(year)}</button>`).join('')}
+            </div>
+            <div class="filter-group-sep"></div>
+            <div class="filter-group">
+              <button class="tag stage-tag ${archiveTypeFilter === 'stage' ? 'active' : ''}" type="button" onclick="setArchiveTypeFilter('stage')" aria-pressed="${archiveTypeFilter === 'stage'}">stage</button>
+              <button class="tag reset-tag archive-other-tag ${archiveTypeFilter === 'other' ? 'active' : ''}" type="button" onclick="setArchiveTypeFilter('other')" aria-pressed="${archiveTypeFilter === 'other'}">other</button>
+            </div>
+            <div class="filter-group-sep"></div>
             <button class="tag reset-tag" type="button" onclick="resetArchiveFilters()">↺ Reset</button>
           </div>
-          <div class="home-section-header">
-            <span>Archive</span>
-            <div class="home-section-line"></div>
-            <span class="archive-count">${archiveGroups.length} videos</span>
+        </div>
+        <div class="collapsible-panel ${archiveSortPanelOpen ? 'open' : ''}" id="archiveSortPanel" aria-hidden="${!archiveSortPanelOpen}">
+          <div class="sort-panel-inner control-chip-row">
+            ${archiveSortOptions.map(([mode, label]) => `
+              <button class="pl-sort-btn ${archiveSortMode === mode ? 'active' : ''}" type="button" onclick="setArchiveSort('${mode}')" aria-pressed="${archiveSortMode === mode}">${label}</button>`).join('')}
           </div>
+        </div>
+      </div>
+      <div class="home-content archive-content">
+        <div class="home-section">
           ${archiveGroups.length
             ? `<div class="archive-grid">
                 ${archiveGroups.map(group => `
@@ -3035,8 +3326,8 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
                   </button>`).join('')}
               </div>`
             : `<div class="pl-empty" style="padding:64px 24px;">
-                <div class="pl-empty-title">No Archives</div>
-                <div class="pl-empty-sub">Video records will appear here.</div>
+                <div class="pl-empty-title">Archive がありません</div>
+                <div class="pl-empty-sub">動画・歌枠ごとの記録がここに表示されます。</div>
               </div>`}
         </div>
       </div>`;
@@ -3140,6 +3431,10 @@ const SONGS_API_URL = window.MISOLABO_SONGS_API_URL || 'https://script.google.co
   }
 
   // ── Init
+  const sharedCollabPopup = document.getElementById('collabPopup');
+  if (sharedCollabPopup && sharedCollabPopup.parentElement !== document.body) {
+    document.body.appendChild(sharedCollabPopup);
+  }
   loadFavoritesFromStorage();
   loadPlaylistsFromStorage();
   syncThemeIcon();
